@@ -736,6 +736,10 @@ export type Database = {
       }
       business_day_for: { Args: { ts: string }; Returns: string }
       default_warehouse_id: { Args: never; Returns: string }
+      finalize_order: {
+        Args: { _order_id: string; _payments: Json }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -744,6 +748,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      receive_purchase: { Args: { _purchase_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "cashier" | "waiter"
