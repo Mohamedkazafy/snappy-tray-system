@@ -9,38 +9,272 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWarehousesRouteImport } from './routes/_authenticated/warehouses'
+import { Route as AuthenticatedTablesRouteImport } from './routes/_authenticated/tables'
+import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
+import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
+import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
+import { Route as AuthenticatedPaymentMethodsRouteImport } from './routes/_authenticated/payment-methods'
+import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
+import { Route as AuthenticatedEmployeesRouteImport } from './routes/_authenticated/employees'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedClosingRouteImport } from './routes/_authenticated/closing'
+import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
+import { Route as AuthenticatedTableOrderOrderIdRouteImport } from './routes/_authenticated/table-order.$orderId'
+import { Route as AuthenticatedReceiptOrderIdRouteImport } from './routes/_authenticated/receipt.$orderId'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWarehousesRoute = AuthenticatedWarehousesRouteImport.update({
+  id: '/warehouses',
+  path: '/warehouses',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTablesRoute = AuthenticatedTablesRouteImport.update({
+  id: '/tables',
+  path: '/tables',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSuppliersRoute = AuthenticatedSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPurchasesRoute = AuthenticatedPurchasesRouteImport.update({
+  id: '/purchases',
+  path: '/purchases',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProductsRoute = AuthenticatedProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPosRoute = AuthenticatedPosRouteImport.update({
+  id: '/pos',
+  path: '/pos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPaymentMethodsRoute =
+  AuthenticatedPaymentMethodsRouteImport.update({
+    id: '/payment-methods',
+    path: '/payment-methods',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEmployeesRoute = AuthenticatedEmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedClosingRoute = AuthenticatedClosingRouteImport.update({
+  id: '/closing',
+  path: '/closing',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCategoriesRoute = AuthenticatedCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTableOrderOrderIdRoute =
+  AuthenticatedTableOrderOrderIdRouteImport.update({
+    id: '/table-order/$orderId',
+    path: '/table-order/$orderId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReceiptOrderIdRoute =
+  AuthenticatedReceiptOrderIdRouteImport.update({
+    id: '/receipt/$orderId',
+    path: '/receipt/$orderId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/categories': typeof AuthenticatedCategoriesRoute
+  '/closing': typeof AuthenticatedClosingRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/employees': typeof AuthenticatedEmployeesRoute
+  '/inventory': typeof AuthenticatedInventoryRoute
+  '/payment-methods': typeof AuthenticatedPaymentMethodsRoute
+  '/pos': typeof AuthenticatedPosRoute
+  '/products': typeof AuthenticatedProductsRoute
+  '/purchases': typeof AuthenticatedPurchasesRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/suppliers': typeof AuthenticatedSuppliersRoute
+  '/tables': typeof AuthenticatedTablesRoute
+  '/warehouses': typeof AuthenticatedWarehousesRoute
+  '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
+  '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/categories': typeof AuthenticatedCategoriesRoute
+  '/closing': typeof AuthenticatedClosingRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/employees': typeof AuthenticatedEmployeesRoute
+  '/inventory': typeof AuthenticatedInventoryRoute
+  '/payment-methods': typeof AuthenticatedPaymentMethodsRoute
+  '/pos': typeof AuthenticatedPosRoute
+  '/products': typeof AuthenticatedProductsRoute
+  '/purchases': typeof AuthenticatedPurchasesRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/suppliers': typeof AuthenticatedSuppliersRoute
+  '/tables': typeof AuthenticatedTablesRoute
+  '/warehouses': typeof AuthenticatedWarehousesRoute
+  '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
+  '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/categories': typeof AuthenticatedCategoriesRoute
+  '/_authenticated/closing': typeof AuthenticatedClosingRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/employees': typeof AuthenticatedEmployeesRoute
+  '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
+  '/_authenticated/payment-methods': typeof AuthenticatedPaymentMethodsRoute
+  '/_authenticated/pos': typeof AuthenticatedPosRoute
+  '/_authenticated/products': typeof AuthenticatedProductsRoute
+  '/_authenticated/purchases': typeof AuthenticatedPurchasesRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
+  '/_authenticated/tables': typeof AuthenticatedTablesRoute
+  '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
+  '/_authenticated/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
+  '/_authenticated/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/categories'
+    | '/closing'
+    | '/dashboard'
+    | '/employees'
+    | '/inventory'
+    | '/payment-methods'
+    | '/pos'
+    | '/products'
+    | '/purchases'
+    | '/reports'
+    | '/settings'
+    | '/suppliers'
+    | '/tables'
+    | '/warehouses'
+    | '/receipt/$orderId'
+    | '/table-order/$orderId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/categories'
+    | '/closing'
+    | '/dashboard'
+    | '/employees'
+    | '/inventory'
+    | '/payment-methods'
+    | '/pos'
+    | '/products'
+    | '/purchases'
+    | '/reports'
+    | '/settings'
+    | '/suppliers'
+    | '/tables'
+    | '/warehouses'
+    | '/receipt/$orderId'
+    | '/table-order/$orderId'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/categories'
+    | '/_authenticated/closing'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/employees'
+    | '/_authenticated/inventory'
+    | '/_authenticated/payment-methods'
+    | '/_authenticated/pos'
+    | '/_authenticated/products'
+    | '/_authenticated/purchases'
+    | '/_authenticated/reports'
+    | '/_authenticated/settings'
+    | '/_authenticated/suppliers'
+    | '/_authenticated/tables'
+    | '/_authenticated/warehouses'
+    | '/_authenticated/receipt/$orderId'
+    | '/_authenticated/table-order/$orderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +282,167 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/warehouses': {
+      id: '/_authenticated/warehouses'
+      path: '/warehouses'
+      fullPath: '/warehouses'
+      preLoaderRoute: typeof AuthenticatedWarehousesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tables': {
+      id: '/_authenticated/tables'
+      path: '/tables'
+      fullPath: '/tables'
+      preLoaderRoute: typeof AuthenticatedTablesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/suppliers': {
+      id: '/_authenticated/suppliers'
+      path: '/suppliers'
+      fullPath: '/suppliers'
+      preLoaderRoute: typeof AuthenticatedSuppliersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/purchases': {
+      id: '/_authenticated/purchases'
+      path: '/purchases'
+      fullPath: '/purchases'
+      preLoaderRoute: typeof AuthenticatedPurchasesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/products': {
+      id: '/_authenticated/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof AuthenticatedProductsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pos': {
+      id: '/_authenticated/pos'
+      path: '/pos'
+      fullPath: '/pos'
+      preLoaderRoute: typeof AuthenticatedPosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/payment-methods': {
+      id: '/_authenticated/payment-methods'
+      path: '/payment-methods'
+      fullPath: '/payment-methods'
+      preLoaderRoute: typeof AuthenticatedPaymentMethodsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventory': {
+      id: '/_authenticated/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/employees': {
+      id: '/_authenticated/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof AuthenticatedEmployeesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/closing': {
+      id: '/_authenticated/closing'
+      path: '/closing'
+      fullPath: '/closing'
+      preLoaderRoute: typeof AuthenticatedClosingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/categories': {
+      id: '/_authenticated/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof AuthenticatedCategoriesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/table-order/$orderId': {
+      id: '/_authenticated/table-order/$orderId'
+      path: '/table-order/$orderId'
+      fullPath: '/table-order/$orderId'
+      preLoaderRoute: typeof AuthenticatedTableOrderOrderIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/receipt/$orderId': {
+      id: '/_authenticated/receipt/$orderId'
+      path: '/receipt/$orderId'
+      fullPath: '/receipt/$orderId'
+      preLoaderRoute: typeof AuthenticatedReceiptOrderIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCategoriesRoute: typeof AuthenticatedCategoriesRoute
+  AuthenticatedClosingRoute: typeof AuthenticatedClosingRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedEmployeesRoute: typeof AuthenticatedEmployeesRoute
+  AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
+  AuthenticatedPaymentMethodsRoute: typeof AuthenticatedPaymentMethodsRoute
+  AuthenticatedPosRoute: typeof AuthenticatedPosRoute
+  AuthenticatedProductsRoute: typeof AuthenticatedProductsRoute
+  AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
+  AuthenticatedTablesRoute: typeof AuthenticatedTablesRoute
+  AuthenticatedWarehousesRoute: typeof AuthenticatedWarehousesRoute
+  AuthenticatedReceiptOrderIdRoute: typeof AuthenticatedReceiptOrderIdRoute
+  AuthenticatedTableOrderOrderIdRoute: typeof AuthenticatedTableOrderOrderIdRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCategoriesRoute: AuthenticatedCategoriesRoute,
+  AuthenticatedClosingRoute: AuthenticatedClosingRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedEmployeesRoute: AuthenticatedEmployeesRoute,
+  AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedPaymentMethodsRoute: AuthenticatedPaymentMethodsRoute,
+  AuthenticatedPosRoute: AuthenticatedPosRoute,
+  AuthenticatedProductsRoute: AuthenticatedProductsRoute,
+  AuthenticatedPurchasesRoute: AuthenticatedPurchasesRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
+  AuthenticatedTablesRoute: AuthenticatedTablesRoute,
+  AuthenticatedWarehousesRoute: AuthenticatedWarehousesRoute,
+  AuthenticatedReceiptOrderIdRoute: AuthenticatedReceiptOrderIdRoute,
+  AuthenticatedTableOrderOrderIdRoute: AuthenticatedTableOrderOrderIdRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
