@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, Plus, Minus, Trash2, Printer, StickyNote } from "lucide-react";
+import { Search, Plus, Minus, Trash2, Printer, StickyNote, CreditCard, CheckCircle2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/pos")({
@@ -23,6 +24,8 @@ type Product = { id: string; name: string; price: number; category_id: string | 
 type Category = { id: string; name: string };
 type PaymentMethod = { id: string; name: string; is_cash: boolean };
 type Settings = { currency: string; default_tax_rate: number };
+type Table = { id: string; name: string; status: string; area_id: string };
+type Area = { id: string; name: string };
 
 type CartItem = { product_id: string; name: string; price: number; qty: number; tax_rate: number; notes?: string };
 
@@ -34,35 +37,58 @@ const saleTypes = [
 
 function POS() {
   const { user } = useSession();
-  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [settings, setSettings] = useState<Settings>({ currency: "USD", default_tax_rate: 0 });
+  const [tables, setTables] = useState<Table[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+
   const [activeCat, setActiveCat] = useState<string | "all">("all");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [saleType, setSaleType] = useState<"takeaway" | "dinein" | "delivery">("takeaway");
+  const [tableId, setTableId] = useState<string>("");
   const [discount, setDiscount] = useState(0);
   const [customer, setCustomer] = useState("");
   const [noteFor, setNoteFor] = useState<number | null>(null);
+
+  // Checkout stage
+  const [stage, setStage] = useState<"building" | "checkout">("building");
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<number | null>(null);
+  const [paidSum, setPaidSum] = useState(0);
+  const [busy, setBusy] = useState(false);
+
   const [payOpen, setPayOpen] = useState(false);
   const [payments, setPayments] = useState<Record<string, number>>({});
-  const [placing, setPlacing] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const [p, c, m, s] = await Promise.all([
+      const [p, c, m, s, t, a] = await Promise.all([
         supabase.from("products").select("id,name,price,category_id,taxable,tax_rate,active").eq("active", true).order("name"),
         supabase.from("categories").select("id,name").eq("active", true).order("sort_order"),
         supabase.from("payment_methods").select("id,name,is_cash").eq("active", true).order("sort_order"),
         supabase.from("settings").select("currency,default_tax_rate").single(),
+        supabase.from("dining_tables").select("id,name,status,area_id").order("name"),
+        supabase.from("dining_areas").select("id,name").order("sort_order"),
       ]);
       setProducts((p.data ?? []) as any);
       setCategories((c.data ?? []) as any);
       setMethods((m.data ?? []) as any);
       if (s.data) setSettings(s.data as any);
+      setTables((t.data ?? []) as any);
+      setAreas((a.data ?? []) as any);
     })();
+
+    const chan = supabase
+      .channel("pos-tables")
+      .on("postgres_changes", { event: "*", schema: "public", table: "dining_tables" }, async () => {
+        const { data } = await supabase.from("dining_tables").select("id,name,status,area_id").order("name");
+        setTables((data ?? []) as any);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(chan); };
   }, []);
 
   const filtered = useMemo(() => {
@@ -83,7 +109,10 @@ function POS() {
     return { subtotal, discount: disc, tax, total };
   }, [cart, discount]);
 
+  const editable = stage === "building";
+
   function addProduct(p: Product) {
+    if (!editable) { toast.error("Order sent to checkout. Go back to edit."); return; }
     const rate = p.taxable ? (p.tax_rate ?? settings.default_tax_rate ?? 0) : 0;
     setCart((c) => {
       const i = c.findIndex((x) => x.product_id === p.id);
@@ -110,32 +139,31 @@ function POS() {
     setCart((c) => c.filter((_, i) => i !== idx));
   }
 
-  function resetSale() {
+  function resetAll() {
     setCart([]); setDiscount(0); setCustomer(""); setPayments({});
+    setStage("building"); setOrderId(null); setOrderNumber(null); setPaidSum(0);
+    setTableId("");
   }
 
-  function openPay() {
-    if (cart.length === 0) return;
-    // Prefill first payment method with total
-    const first = methods[0];
-    if (first) setPayments({ [first.id]: Number(totals.total.toFixed(2)) });
-    setPayOpen(true);
+  async function refreshPaid(id: string) {
+    const { data } = await supabase.from("order_payments").select("amount").eq("order_id", id);
+    const sum = (data ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
+    setPaidSum(sum);
+    return sum;
   }
 
-  const paidSum = Object.values(payments).reduce((s, v) => s + Number(v || 0), 0);
-
-  async function placeOrder() {
+  async function sendToCheckout() {
     if (!user) return;
-    if (Math.abs(paidSum - totals.total) > 0.01) {
-      toast.error("Payment amount must equal total");
-      return;
-    }
-    setPlacing(true);
+    if (cart.length === 0) return toast.error("Cart is empty");
+    if (saleType === "dinein" && !tableId) return toast.error("Select a table for dine-in");
+
+    setBusy(true);
     try {
       const { data: order, error } = await supabase
         .from("orders")
         .insert({
           sale_type: saleType,
+          table_id: saleType === "dinein" ? tableId : null,
           subtotal: totals.subtotal,
           discount: totals.discount,
           tax: totals.tax,
@@ -159,22 +187,75 @@ function POS() {
       const { error: ie } = await supabase.from("order_items").insert(items);
       if (ie) throw ie;
 
+      if (saleType === "dinein" && tableId) {
+        await supabase.from("dining_tables").update({ status: "occupied" }).eq("id", tableId);
+      }
+
+      setOrderId(order.id);
+      setOrderNumber(order.order_number);
+      setStage("checkout");
+      const first = methods[0];
+      if (first) setPayments({ [first.id]: Number(totals.total.toFixed(2)) });
+      setPaidSum(0);
+    } catch (err: any) {
+      toast.error(err.message ?? "Could not create order");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function backToEdit() {
+    if (!orderId) return;
+    if (!confirm("Discard checkout and edit order?")) return;
+    // Delete open order (payments cascade). Free table if any.
+    const tid = saleType === "dinein" ? tableId : null;
+    await supabase.from("orders").delete().eq("id", orderId).eq("status", "open");
+    if (tid) await supabase.from("dining_tables").update({ status: "available" }).eq("id", tid);
+    setOrderId(null); setOrderNumber(null); setStage("building"); setPaidSum(0);
+  }
+
+  async function doCharge() {
+    if (!orderId) return;
+    const paySum = Object.values(payments).reduce((s, v) => s + Number(v || 0), 0);
+    if (paySum <= 0) return toast.error("Enter a payment amount");
+    setBusy(true);
+    try {
       const pays = Object.entries(payments)
         .filter(([, v]) => Number(v) > 0)
         .map(([payment_method_id, amount]) => ({ payment_method_id, amount: Number(amount) }));
-      const { error: fe } = await supabase.rpc("finalize_order", { _order_id: order.id, _payments: pays });
-      if (fe) throw fe;
-
-      toast.success(`Order #${order.order_number} placed`);
+      const { error } = await supabase.rpc("record_order_payments", { _order_id: orderId, _payments: pays });
+      if (error) throw error;
+      await refreshPaid(orderId);
       setPayOpen(false);
-      resetSale();
-      window.open(`/receipt/${order.id}`, "_blank");
+      toast.success("Payment recorded");
     } catch (err: any) {
-      toast.error(err.message || "Failed to place order");
-    } finally {
-      setPlacing(false);
-    }
+      toast.error(err.message ?? "Could not record payment");
+    } finally { setBusy(false); }
   }
+
+  function doPrint() {
+    if (!orderId) return;
+    window.open(`/receipt/${orderId}`, "_blank");
+  }
+
+  async function doComplete() {
+    if (!orderId) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("complete_order", { _order_id: orderId });
+      if (error) throw error;
+      toast.success(`Order #${orderNumber} completed`);
+      resetAll();
+    } catch (err: any) {
+      toast.error(err.message ?? "Could not complete");
+    } finally { setBusy(false); }
+  }
+
+  const remaining = Math.max(0, totals.total - paidSum);
+  const fullyPaid = paidSum + 0.001 >= totals.total && totals.total > 0;
+
+  const areaMap = new Map(areas.map((a) => [a.id, a.name] as const));
+  const openTablesForSelect = tables.filter((t) => t.status === "available");
 
   return (
     <div className="flex h-[calc(100vh-0px)] lg:h-screen">
@@ -189,10 +270,12 @@ function POS() {
             {saleTypes.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setSaleType(t.key)}
+                onClick={() => editable && setSaleType(t.key)}
+                disabled={!editable}
                 className={cn(
                   "px-4 h-9 rounded-md text-sm font-medium transition-colors",
-                  saleType === t.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  saleType === t.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  !editable && "opacity-60 cursor-not-allowed",
                 )}
               >
                 {t.label}
@@ -214,7 +297,10 @@ function POS() {
               <button
                 key={p.id}
                 onClick={() => addProduct(p)}
-                className="group text-left bg-card border border-border rounded-xl p-4 hover:border-primary hover:shadow-md transition-all active:scale-[.98]"
+                className={cn(
+                  "group text-left bg-card border border-border rounded-xl p-4 hover:border-primary hover:shadow-md transition-all active:scale-[.98]",
+                  !editable && "opacity-50 pointer-events-none",
+                )}
               >
                 <div className="font-medium leading-tight line-clamp-2 min-h-[2.5em]">{p.name}</div>
                 <div className="mt-2 text-primary font-semibold">{money(p.price, settings.currency)}</div>
@@ -228,10 +314,34 @@ function POS() {
       </div>
 
       {/* Right: cart */}
-      <div className="w-full lg:w-[380px] flex-shrink-0 bg-card border-l border-border flex flex-col">
+      <div className="w-full lg:w-[400px] flex-shrink-0 bg-card border-l border-border flex flex-col">
         <div className="p-4 border-b border-border">
-          <div className="text-sm text-muted-foreground">Current Order</div>
-          <div className="text-lg font-semibold capitalize">{saleTypes.find((s) => s.key === saleType)?.label}</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-muted-foreground">
+                {stage === "building" ? "Current Order" : `Order #${orderNumber}`}
+              </div>
+              <div className="text-lg font-semibold capitalize">{saleTypes.find((s) => s.key === saleType)?.label}
+                {saleType === "dinein" && tableId ? ` · Table ${tables.find(t => t.id === tableId)?.name}` : ""}
+              </div>
+            </div>
+            {stage === "checkout" && (
+              <Button variant="ghost" size="sm" onClick={backToEdit}><ArrowLeft className="w-4 h-4 mr-1" />Edit</Button>
+            )}
+          </div>
+          {saleType === "dinein" && editable && (
+            <div className="mt-2">
+              <Select value={tableId} onValueChange={setTableId}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Select table…" /></SelectTrigger>
+                <SelectContent>
+                  {openTablesForSelect.length === 0 && <div className="text-sm text-muted-foreground p-2">No available tables</div>}
+                  {openTablesForSelect.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{areaMap.get(t.area_id) ?? "—"} · {t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {cart.length === 0 && (
@@ -241,21 +351,25 @@ function POS() {
             <div key={idx} className="rounded-lg border border-border p-3">
               <div className="flex justify-between items-start gap-2">
                 <div className="font-medium leading-tight">{i.name}</div>
-                <button onClick={() => removeItem(idx)} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {editable && (
+                  <button onClick={() => removeItem(idx)} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <div className="mt-2 flex justify-between items-center">
                 <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => changeQty(idx, -1)}><Minus className="w-3 h-3" /></Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => changeQty(idx, -1)} disabled={!editable}><Minus className="w-3 h-3" /></Button>
                   <div className="w-10 text-center font-semibold">{i.qty}</div>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => changeQty(idx, +1)}><Plus className="w-3 h-3" /></Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => changeQty(idx, +1)} disabled={!editable}><Plus className="w-3 h-3" /></Button>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">{money(i.qty * i.price, settings.currency)}</div>
-                  <button onClick={() => setNoteFor(idx)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-                    <StickyNote className="w-3 h-3" /> {i.notes ? "Edit note" : "Add note"}
-                  </button>
+                  {editable && (
+                    <button onClick={() => setNoteFor(idx)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                      <StickyNote className="w-3 h-3" /> {i.notes ? "Edit note" : "Add note"}
+                    </button>
+                  )}
                 </div>
               </div>
               {i.notes && <div className="mt-1 text-xs text-muted-foreground italic">{i.notes}</div>}
@@ -263,18 +377,44 @@ function POS() {
           ))}
         </div>
         <div className="p-4 border-t border-border space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground w-24">Discount</span>
-            <Input type="number" min={0} value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value || 0))} className="h-9" />
-          </div>
+          {editable && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground w-24">Discount</span>
+              <Input type="number" min={0} value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value || 0))} className="h-9" />
+            </div>
+          )}
           <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>{money(totals.subtotal, settings.currency)}</span></div>
           {totals.discount > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Discount</span><span>-{money(totals.discount, settings.currency)}</span></div>}
           <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tax</span><span>{money(totals.tax, settings.currency)}</span></div>
           <div className="flex justify-between text-lg font-bold pt-1"><span>Total</span><span>{money(totals.total, settings.currency)}</span></div>
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1 h-11" onClick={resetSale} disabled={cart.length === 0}>Clear</Button>
-            <Button className="flex-1 h-11" onClick={openPay} disabled={cart.length === 0}>Pay</Button>
-          </div>
+
+          {stage === "checkout" && (
+            <div className="pt-1 space-y-1">
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Paid</span><span className={fullyPaid ? "text-success font-semibold" : ""}>{money(paidSum, settings.currency)}</span></div>
+              {!fullyPaid && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Balance</span><span className="text-warning-foreground font-semibold">{money(remaining, settings.currency)}</span></div>}
+            </div>
+          )}
+
+          {stage === "building" ? (
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1 h-11" onClick={resetAll} disabled={cart.length === 0}>Clear</Button>
+              <Button className="flex-1 h-11" onClick={sendToCheckout} disabled={cart.length === 0 || busy}>
+                Checkout →
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <Button variant="outline" className="h-11" onClick={() => setPayOpen(true)} disabled={busy}>
+                <CreditCard className="w-4 h-4 mr-1" /> Charge
+              </Button>
+              <Button variant="outline" className="h-11" onClick={doPrint} disabled={busy}>
+                <Printer className="w-4 h-4 mr-1" /> Print
+              </Button>
+              <Button className="h-11" onClick={doComplete} disabled={busy || !fullyPaid} title={!fullyPaid ? "Charge full amount first" : ""}>
+                <CheckCircle2 className="w-4 h-4 mr-1" /> Complete
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -299,14 +439,12 @@ function POS() {
       {/* Payment dialog */}
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Payment</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Charge payment</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Card className="p-3">
               <div className="flex justify-between"><span>Total due</span><span className="font-bold">{money(totals.total, settings.currency)}</span></div>
-              <div className="flex justify-between text-sm mt-1"><span className="text-muted-foreground">Received</span><span>{money(paidSum, settings.currency)}</span></div>
-              <div className={cn("flex justify-between text-sm mt-1", Math.abs(paidSum - totals.total) < 0.01 ? "text-success" : "text-warning")}>
-                <span>Change</span><span>{money(Math.max(0, paidSum - totals.total), settings.currency)}</span>
-              </div>
+              <div className="flex justify-between text-sm mt-1"><span className="text-muted-foreground">Already paid</span><span>{money(paidSum, settings.currency)}</span></div>
+              <div className="flex justify-between text-sm mt-1"><span className="text-muted-foreground">This charge</span><span>{money(Object.values(payments).reduce((s, v) => s + Number(v || 0), 0), settings.currency)}</span></div>
             </Card>
             <Input placeholder="Customer name (optional)" value={customer} onChange={(e) => setCustomer(e.target.value)} />
             <div className="space-y-2">
@@ -326,13 +464,16 @@ function POS() {
             <div className="flex gap-2 flex-wrap">
               <Button size="sm" variant="outline" onClick={() => {
                 const first = methods[0]; if (first) setPayments({ [first.id]: Number(totals.total.toFixed(2)) });
-              }}>Exact</Button>
+              }}>Exact total</Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                const first = methods[0]; if (first) setPayments({ [first.id]: Number(remaining.toFixed(2)) });
+              }}>Remaining</Button>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
-            <Button onClick={placeOrder} disabled={placing}>
-              <Printer className="w-4 h-4 mr-2" /> {placing ? "Placing…" : "Charge & Print"}
+            <Button onClick={doCharge} disabled={busy}>
+              <CreditCard className="w-4 h-4 mr-2" /> {busy ? "Saving…" : "Save payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
