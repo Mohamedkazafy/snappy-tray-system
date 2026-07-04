@@ -53,7 +53,7 @@ function Page() {
     setBusy(true);
     const { error } = await supabase.rpc("adjust_stock", {
       _product_id: adjust.product_id, _warehouse_id: adjust.warehouse_id,
-      _delta: delta, _note: adjust.note || null,
+      _delta: delta, _note: adjust.note,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -69,7 +69,7 @@ function Page() {
     setBusy(true);
     const { error } = await supabase.rpc("transfer_stock", {
       _product_id: transfer.product_id, _from_wh: transfer.from_wh, _to_wh: transfer.to_wh,
-      _qty: qty, _note: transfer.note || null,
+      _qty: qty, _note: transfer.note,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
