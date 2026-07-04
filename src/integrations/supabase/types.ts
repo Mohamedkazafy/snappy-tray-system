@@ -721,6 +721,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_stock: {
+        Args: {
+          _delta: number
+          _note: string
+          _product_id: string
+          _warehouse_id: string
+        }
+        Returns: undefined
+      }
       apply_stock_movement: {
         Args: {
           _cost: number
@@ -735,6 +744,7 @@ export type Database = {
         Returns: undefined
       }
       business_day_for: { Args: { ts: string }; Returns: string }
+      complete_order: { Args: { _order_id: string }; Returns: undefined }
       default_warehouse_id: { Args: never; Returns: string }
       finalize_order: {
         Args: { _order_id: string; _payments: Json }
@@ -749,6 +759,20 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       receive_purchase: { Args: { _purchase_id: string }; Returns: undefined }
+      record_order_payments: {
+        Args: { _order_id: string; _payments: Json }
+        Returns: undefined
+      }
+      transfer_stock: {
+        Args: {
+          _from_wh: string
+          _note: string
+          _product_id: string
+          _qty: number
+          _to_wh: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "cashier" | "waiter"
@@ -764,7 +788,7 @@ export type Database = {
         | "issue"
         | "receive"
         | "count"
-      table_status: "available" | "occupied" | "reserved"
+      table_status: "available" | "occupied" | "reserved" | "waiting_payment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -906,7 +930,7 @@ export const Constants = {
         "receive",
         "count",
       ],
-      table_status: ["available", "occupied", "reserved"],
+      table_status: ["available", "occupied", "reserved", "waiting_payment"],
     },
   },
 } as const
