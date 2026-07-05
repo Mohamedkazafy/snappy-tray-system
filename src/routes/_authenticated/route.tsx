@@ -21,7 +21,6 @@ export const Route = createFileRoute("/_authenticated")({
   component: Shell,
 });
 
-type NavItem = { to: string; label: string; icon: any; admin?: boolean };
 type NavItem = { to: string; key: string; icon: any; admin?: boolean };
 const nav: NavItem[] = [
   { to: "/pos", key: "pos", icon: ShoppingCart },
