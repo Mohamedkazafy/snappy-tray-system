@@ -68,8 +68,8 @@ function Shell() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "no-print fixed lg:static inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "no-print fixed lg:static inset-y-0 left-0 rtl:left-auto rtl:right-0 z-40 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full rtl:translate-x-full lg:translate-x-0"
         )}
       >
         <div className="h-16 flex items-center gap-3 px-5 border-b border-sidebar-border">
