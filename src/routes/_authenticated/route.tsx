@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
 import {
   LayoutDashboard, ShoppingCart, Utensils, Package, Tags, CreditCard,
-  Warehouse, Truck, Boxes, ClipboardList, Wallet, BarChart3, Settings, LogOut, Users, UtensilsCrossed, Menu, X
+  Warehouse, Truck, Boxes, ClipboardList, Wallet, BarChart3, Settings, LogOut, Users, UtensilsCrossed, Menu, X, Languages
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { currentLanguage, setLanguage } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -20,21 +22,22 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 type NavItem = { to: string; label: string; icon: any; admin?: boolean };
+type NavItem = { to: string; key: string; icon: any; admin?: boolean };
 const nav: NavItem[] = [
-  { to: "/pos", label: "POS", icon: ShoppingCart },
-  { to: "/tables", label: "Tables", icon: Utensils },
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, admin: true },
-  { to: "/products", label: "Products", icon: Package, admin: true },
-  { to: "/categories", label: "Categories", icon: Tags, admin: true },
-  { to: "/payment-methods", label: "Payments", icon: CreditCard, admin: true },
-  { to: "/warehouses", label: "Warehouses", icon: Warehouse, admin: true },
-  { to: "/suppliers", label: "Suppliers", icon: Truck, admin: true },
-  { to: "/purchases", label: "Purchases", icon: ClipboardList, admin: true },
-  { to: "/inventory", label: "Inventory", icon: Boxes, admin: true },
-  { to: "/closing", label: "Day Closing", icon: Wallet, admin: true },
-  { to: "/reports", label: "Reports", icon: BarChart3, admin: true },
-  { to: "/employees", label: "Employees", icon: Users, admin: true },
-  { to: "/settings", label: "Settings", icon: Settings, admin: true },
+  { to: "/pos", key: "pos", icon: ShoppingCart },
+  { to: "/tables", key: "tables", icon: Utensils },
+  { to: "/dashboard", key: "dashboard", icon: LayoutDashboard, admin: true },
+  { to: "/products", key: "products", icon: Package, admin: true },
+  { to: "/categories", key: "categories", icon: Tags, admin: true },
+  { to: "/payment-methods", key: "payments", icon: CreditCard, admin: true },
+  { to: "/warehouses", key: "warehouses", icon: Warehouse, admin: true },
+  { to: "/suppliers", key: "suppliers", icon: Truck, admin: true },
+  { to: "/purchases", key: "purchases", icon: ClipboardList, admin: true },
+  { to: "/inventory", key: "inventory", icon: Boxes, admin: true },
+  { to: "/closing", key: "closing", icon: Wallet, admin: true },
+  { to: "/reports", key: "reports", icon: BarChart3, admin: true },
+  { to: "/employees", key: "employees", icon: Users, admin: true },
+  { to: "/settings", key: "settings", icon: Settings, admin: true },
 ];
 
 function Shell() {
@@ -42,6 +45,12 @@ function Shell() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
+  const lang = currentLanguage();
+
+  function toggleLang() {
+    setLanguage(lang === "ar" ? "en" : "ar");
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
