@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
 import {
   LayoutDashboard, ShoppingCart, Utensils, Package, Tags, CreditCard,
-  Warehouse, Truck, Boxes, ClipboardList, Wallet, BarChart3, Settings, LogOut, Users, UtensilsCrossed, Menu, X
+  Warehouse, Truck, Boxes, ClipboardList, Wallet, BarChart3, Settings, LogOut, Users, UtensilsCrossed, Menu, X, Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -23,6 +23,7 @@ type NavItem = { to: string; label: string; icon: any; admin?: boolean };
 const nav: NavItem[] = [
   { to: "/pos", label: "POS", icon: ShoppingCart },
   { to: "/tables", label: "Tables", icon: Utensils },
+  { to: "/special-orders", label: "Special Orders", icon: Bot },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, admin: true },
   { to: "/products", label: "Products", icon: Package, admin: true },
   { to: "/categories", label: "Categories", icon: Tags, admin: true },
