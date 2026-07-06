@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWarehousesRouteImport } from './routes/_authenticated/warehouses'
 import { Route as AuthenticatedTablesRouteImport } from './routes/_authenticated/tables'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
+import { Route as AuthenticatedSpecialOrdersRouteImport } from './routes/_authenticated/special-orders'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
@@ -28,6 +29,8 @@ import { Route as AuthenticatedClosingRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
 import { Route as AuthenticatedTableOrderOrderIdRouteImport } from './routes/_authenticated/table-order.$orderId'
 import { Route as AuthenticatedReceiptOrderIdRouteImport } from './routes/_authenticated/receipt.$orderId'
+import { Route as ApiPublicAgentOrdersRouteImport } from './routes/api/public/agent/orders'
+import { Route as ApiPublicAgentMenuRouteImport } from './routes/api/public/agent/menu'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -58,6 +61,12 @@ const AuthenticatedSuppliersRoute = AuthenticatedSuppliersRouteImport.update({
   path: '/suppliers',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSpecialOrdersRoute =
+  AuthenticatedSpecialOrdersRouteImport.update({
+    id: '/special-orders',
+    path: '/special-orders',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -126,6 +135,16 @@ const AuthenticatedReceiptOrderIdRoute =
     path: '/receipt/$orderId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicAgentOrdersRoute = ApiPublicAgentOrdersRouteImport.update({
+  id: '/api/public/agent/orders',
+  path: '/api/public/agent/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentMenuRoute = ApiPublicAgentMenuRouteImport.update({
+  id: '/api/public/agent/menu',
+  path: '/api/public/agent/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -141,11 +160,14 @@ export interface FileRoutesByFullPath {
   '/purchases': typeof AuthenticatedPurchasesRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/special-orders': typeof AuthenticatedSpecialOrdersRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/tables': typeof AuthenticatedTablesRoute
   '/warehouses': typeof AuthenticatedWarehousesRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
   '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
+  '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
+  '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -161,11 +183,14 @@ export interface FileRoutesByTo {
   '/purchases': typeof AuthenticatedPurchasesRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/special-orders': typeof AuthenticatedSpecialOrdersRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/tables': typeof AuthenticatedTablesRoute
   '/warehouses': typeof AuthenticatedWarehousesRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
   '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
+  '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
+  '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -183,11 +208,14 @@ export interface FileRoutesById {
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/special-orders': typeof AuthenticatedSpecialOrdersRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/tables': typeof AuthenticatedTablesRoute
   '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
   '/_authenticated/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
   '/_authenticated/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
+  '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
+  '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -205,11 +233,14 @@ export interface FileRouteTypes {
     | '/purchases'
     | '/reports'
     | '/settings'
+    | '/special-orders'
     | '/suppliers'
     | '/tables'
     | '/warehouses'
     | '/receipt/$orderId'
     | '/table-order/$orderId'
+    | '/api/public/agent/menu'
+    | '/api/public/agent/orders'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -225,11 +256,14 @@ export interface FileRouteTypes {
     | '/purchases'
     | '/reports'
     | '/settings'
+    | '/special-orders'
     | '/suppliers'
     | '/tables'
     | '/warehouses'
     | '/receipt/$orderId'
     | '/table-order/$orderId'
+    | '/api/public/agent/menu'
+    | '/api/public/agent/orders'
   id:
     | '__root__'
     | '/'
@@ -246,17 +280,22 @@ export interface FileRouteTypes {
     | '/_authenticated/purchases'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
+    | '/_authenticated/special-orders'
     | '/_authenticated/suppliers'
     | '/_authenticated/tables'
     | '/_authenticated/warehouses'
     | '/_authenticated/receipt/$orderId'
     | '/_authenticated/table-order/$orderId'
+    | '/api/public/agent/menu'
+    | '/api/public/agent/orders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicAgentMenuRoute: typeof ApiPublicAgentMenuRoute
+  ApiPublicAgentOrdersRoute: typeof ApiPublicAgentOrdersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -301,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/suppliers'
       fullPath: '/suppliers'
       preLoaderRoute: typeof AuthenticatedSuppliersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/special-orders': {
+      id: '/_authenticated/special-orders'
+      path: '/special-orders'
+      fullPath: '/special-orders'
+      preLoaderRoute: typeof AuthenticatedSpecialOrdersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -394,6 +440,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReceiptOrderIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/agent/orders': {
+      id: '/api/public/agent/orders'
+      path: '/api/public/agent/orders'
+      fullPath: '/api/public/agent/orders'
+      preLoaderRoute: typeof ApiPublicAgentOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/menu': {
+      id: '/api/public/agent/menu'
+      path: '/api/public/agent/menu'
+      fullPath: '/api/public/agent/menu'
+      preLoaderRoute: typeof ApiPublicAgentMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -409,6 +469,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSpecialOrdersRoute: typeof AuthenticatedSpecialOrdersRoute
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
   AuthenticatedTablesRoute: typeof AuthenticatedTablesRoute
   AuthenticatedWarehousesRoute: typeof AuthenticatedWarehousesRoute
@@ -428,6 +489,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSpecialOrdersRoute: AuthenticatedSpecialOrdersRoute,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
   AuthenticatedTablesRoute: AuthenticatedTablesRoute,
   AuthenticatedWarehousesRoute: AuthenticatedWarehousesRoute,
@@ -442,17 +504,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicAgentMenuRoute: ApiPublicAgentMenuRoute,
+  ApiPublicAgentOrdersRoute: ApiPublicAgentOrdersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
