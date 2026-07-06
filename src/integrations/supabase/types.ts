@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          token_hash: string
+          token_prefix: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          token_hash: string
+          token_prefix: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          token_hash?: string
+          token_prefix?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           active: boolean
@@ -233,6 +266,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_name: string | null
+          customer_phone: string | null
           discount: number
           id: string
           notes: string | null
@@ -251,6 +285,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_name?: string | null
+          customer_phone?: string | null
           discount?: number
           id?: string
           notes?: string | null
@@ -269,6 +304,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_name?: string | null
+          customer_phone?: string | null
           discount?: number
           id?: string
           notes?: string | null
@@ -778,7 +814,7 @@ export type Database = {
       app_role: "admin" | "cashier" | "waiter"
       order_status: "open" | "paid" | "void"
       product_type: "raw" | "manufactured" | "ready"
-      sale_type: "takeaway" | "dinein" | "delivery"
+      sale_type: "takeaway" | "dinein" | "delivery" | "special"
       stock_move_reason:
         | "purchase"
         | "sale"
@@ -919,7 +955,7 @@ export const Constants = {
       app_role: ["admin", "cashier", "waiter"],
       order_status: ["open", "paid", "void"],
       product_type: ["raw", "manufactured", "ready"],
-      sale_type: ["takeaway", "dinein", "delivery"],
+      sale_type: ["takeaway", "dinein", "delivery", "special"],
       stock_move_reason: [
         "purchase",
         "sale",
