@@ -28,6 +28,8 @@ import { Route as AuthenticatedClosingRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
 import { Route as AuthenticatedTableOrderOrderIdRouteImport } from './routes/_authenticated/table-order.$orderId'
 import { Route as AuthenticatedReceiptOrderIdRouteImport } from './routes/_authenticated/receipt.$orderId'
+import { Route as ApiPublicAgentOrdersRouteImport } from './routes/api/public/agent/orders'
+import { Route as ApiPublicAgentMenuRouteImport } from './routes/api/public/agent/menu'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -126,6 +128,16 @@ const AuthenticatedReceiptOrderIdRoute =
     path: '/receipt/$orderId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicAgentOrdersRoute = ApiPublicAgentOrdersRouteImport.update({
+  id: '/api/public/agent/orders',
+  path: '/api/public/agent/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAgentMenuRoute = ApiPublicAgentMenuRouteImport.update({
+  id: '/api/public/agent/menu',
+  path: '/api/public/agent/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -146,6 +158,8 @@ export interface FileRoutesByFullPath {
   '/warehouses': typeof AuthenticatedWarehousesRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
   '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
+  '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
+  '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -166,6 +180,8 @@ export interface FileRoutesByTo {
   '/warehouses': typeof AuthenticatedWarehousesRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
   '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
+  '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
+  '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -188,6 +204,8 @@ export interface FileRoutesById {
   '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
   '/_authenticated/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
   '/_authenticated/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
+  '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
+  '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -210,6 +228,8 @@ export interface FileRouteTypes {
     | '/warehouses'
     | '/receipt/$orderId'
     | '/table-order/$orderId'
+    | '/api/public/agent/menu'
+    | '/api/public/agent/orders'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -230,6 +250,8 @@ export interface FileRouteTypes {
     | '/warehouses'
     | '/receipt/$orderId'
     | '/table-order/$orderId'
+    | '/api/public/agent/menu'
+    | '/api/public/agent/orders'
   id:
     | '__root__'
     | '/'
@@ -251,12 +273,16 @@ export interface FileRouteTypes {
     | '/_authenticated/warehouses'
     | '/_authenticated/receipt/$orderId'
     | '/_authenticated/table-order/$orderId'
+    | '/api/public/agent/menu'
+    | '/api/public/agent/orders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicAgentMenuRoute: typeof ApiPublicAgentMenuRoute
+  ApiPublicAgentOrdersRoute: typeof ApiPublicAgentOrdersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -394,6 +420,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReceiptOrderIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/agent/orders': {
+      id: '/api/public/agent/orders'
+      path: '/api/public/agent/orders'
+      fullPath: '/api/public/agent/orders'
+      preLoaderRoute: typeof ApiPublicAgentOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/agent/menu': {
+      id: '/api/public/agent/menu'
+      path: '/api/public/agent/menu'
+      fullPath: '/api/public/agent/menu'
+      preLoaderRoute: typeof ApiPublicAgentMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -442,6 +482,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicAgentMenuRoute: ApiPublicAgentMenuRoute,
+  ApiPublicAgentOrdersRoute: ApiPublicAgentOrdersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
