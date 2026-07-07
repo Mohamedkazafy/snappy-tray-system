@@ -82,9 +82,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Restaurant POS" },
       { name: "description", content: "Fast, simple point-of-sale for restaurants — take-away, dine-in, and delivery." },
       { property: "og:title", content: "Restaurant POS" },
-      { property: "og:description", content: "Fast, simple point-of-sale for restaurants." },
+      { property: "og:description", content: "Fast, simple point-of-sale for restaurants — take-away, dine-in, and delivery." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Restaurant POS" },
+      { name: "twitter:description", content: "Fast, simple point-of-sale for restaurants — take-away, dine-in, and delivery." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/18f8305f-9e20-4edc-9d48-58c1b944362a/id-preview-995d49d1--48c14a9b-89a1-4a5b-aad6-c614dec446f4.lovable.app-1783444870687.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/18f8305f-9e20-4edc-9d48-58c1b944362a/id-preview-995d49d1--48c14a9b-89a1-4a5b-aad6-c614dec446f4.lovable.app-1783444870687.png" },
     ],
     links: [
       {
