@@ -794,6 +794,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       receive_purchase: { Args: { _purchase_id: string }; Returns: undefined }
       record_order_payments: {
         Args: { _order_id: string; _payments: Json }
