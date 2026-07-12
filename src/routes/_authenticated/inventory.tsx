@@ -231,26 +231,26 @@ function Page() {
 
       <Dialog open={!!transfer} onOpenChange={(v) => !v && setTransfer(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Stock transfer</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("inv.stockTransfer")}</DialogTitle></DialogHeader>
           {transfer && (
             <div className="space-y-3">
               <div>
-                <Label>Product</Label>
+                <Label>{t("product")}</Label>
                 <Select value={transfer.product_id} onValueChange={(v) => setTransfer({ ...transfer, product_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("inv.selectProduct")} /></SelectTrigger>
                   <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>From</Label>
+                  <Label>{t("inv.from")}</Label>
                   <Select value={transfer.from_wh} onValueChange={(v) => setTransfer({ ...transfer, from_wh: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>To</Label>
+                  <Label>{t("inv.to")}</Label>
                   <Select value={transfer.to_wh} onValueChange={(v) => setTransfer({ ...transfer, to_wh: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
@@ -258,21 +258,22 @@ function Page() {
                 </div>
               </div>
               <div>
-                <Label>Quantity</Label>
+                <Label>{t("inv.quantity")}</Label>
                 <Input type="number" step="any" min={0} value={transfer.qty} onChange={(e) => setTransfer({ ...transfer, qty: e.target.value })} />
               </div>
               <div>
-                <Label>Note</Label>
+                <Label>{t("inv.note")}</Label>
                 <Input value={transfer.note} onChange={(e) => setTransfer({ ...transfer, note: e.target.value })} />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTransfer(null)}>Cancel</Button>
-            <Button onClick={submitTransfer} disabled={busy}>Transfer</Button>
+            <Button variant="outline" onClick={() => setTransfer(null)}>{t("cancel")}</Button>
+            <Button onClick={submitTransfer} disabled={busy}>{t("inv.transfer")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </PageContainer>
   );
 }
