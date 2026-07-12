@@ -48,34 +48,35 @@ function Reports() {
 
   return (
     <PageContainer>
-      <PageHeader title="Reports" subtitle="Slice sales by any dimension" />
+      <PageHeader title={t("rep.title")} subtitle={t("rep.subtitle")} />
       <Card className="p-4 mb-4 flex gap-3 items-end flex-wrap">
-        <div><Label>From</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-        <div><Label>To</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
-        <div className="ml-auto text-right">
-          <div className="text-xs text-muted-foreground">Revenue / Cost / Profit</div>
+        <div><Label>{t("inv.from")}</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+        <div><Label>{t("inv.to")}</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+        <div className="ms-auto text-right">
+          <div className="text-xs text-muted-foreground">{t("rep.revenueCostProfit")}</div>
           <div className="text-lg font-bold">{money(revenue)} / {money(cost)} / <span className="text-success">{money(revenue - cost)}</span></div>
         </div>
       </Card>
       <Tabs defaultValue="date">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="date">By date</TabsTrigger>
-          <TabsTrigger value="product">By product</TabsTrigger>
-          <TabsTrigger value="category">By category</TabsTrigger>
-          <TabsTrigger value="employee">By employee</TabsTrigger>
-          <TabsTrigger value="method">By payment</TabsTrigger>
-          <TabsTrigger value="type">By sale type</TabsTrigger>
+          <TabsTrigger value="date">{t("rep.byDate")}</TabsTrigger>
+          <TabsTrigger value="product">{t("rep.byProduct")}</TabsTrigger>
+          <TabsTrigger value="category">{t("rep.byCategory")}</TabsTrigger>
+          <TabsTrigger value="employee">{t("rep.byEmployee")}</TabsTrigger>
+          <TabsTrigger value="method">{t("rep.byMethod")}</TabsTrigger>
+          <TabsTrigger value="type">{t("rep.bySaleType")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="date"><SimpleTable title="Date" rows={byDate} /></TabsContent>
-        <TabsContent value="product"><SimpleTable title="Product" rows={byProduct} /></TabsContent>
-        <TabsContent value="category"><SimpleTable title="Category" rows={byCategory} /></TabsContent>
-        <TabsContent value="employee"><SimpleTable title="Employee" rows={byEmployee} /></TabsContent>
-        <TabsContent value="method"><SimpleTable title="Method" rows={byMethod} /></TabsContent>
-        <TabsContent value="type"><SimpleTable title="Sale type" rows={bySaleType} /></TabsContent>
+        <TabsContent value="date"><SimpleTable title={t("date")} rows={byDate} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="product"><SimpleTable title={t("product")} rows={byProduct} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="category"><SimpleTable title={t("rep.category")} rows={byCategory} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="employee"><SimpleTable title={t("rep.employee")} rows={byEmployee} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="method"><SimpleTable title={t("rep.method")} rows={byMethod} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="type"><SimpleTable title={t("rep.saleType")} rows={bySaleType} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
       </Tabs>
     </PageContainer>
   );
 }
+
 
 function group<T>(arr: T[], keyFn: (x: T) => string, valFn: (x: T) => number) {
   const m: Record<string, number> = {};
