@@ -83,20 +83,21 @@ function group<T>(arr: T[], keyFn: (x: T) => string, valFn: (x: T) => number) {
   arr.forEach((x) => { const k = keyFn(x) ?? "—"; m[k] = (m[k] ?? 0) + valFn(x); });
   return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([label, total]) => ({ label, total }));
 }
-function SimpleTable({ title, rows }: { title: string; rows: { label: string; total: number }[] }) {
+function SimpleTable({ title, rows, emptyLabel, totalLabel }: { title: string; rows: { label: string; total: number }[]; emptyLabel: string; totalLabel: string }) {
   const sum = rows.reduce((s, r) => s + r.total, 0);
   return (
     <Card>
       <Table>
-        <TableHeader><TableRow><TableHead>{title}</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead>{title}</TableHead><TableHead className="text-right">{totalLabel}</TableHead></TableRow></TableHeader>
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.label}><TableCell className="capitalize">{r.label}</TableCell><TableCell className="text-right font-medium">{money(r.total)}</TableCell></TableRow>
           ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={2} className="text-center py-8 text-muted-foreground">No data.</TableCell></TableRow>}
-          {rows.length > 0 && <TableRow><TableCell className="font-bold">Total</TableCell><TableCell className="text-right font-bold">{money(sum)}</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={2} className="text-center py-8 text-muted-foreground">{emptyLabel}</TableCell></TableRow>}
+          {rows.length > 0 && <TableRow><TableCell className="font-bold">{totalLabel}</TableCell><TableCell className="text-right font-bold">{money(sum)}</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
   );
+
 }
