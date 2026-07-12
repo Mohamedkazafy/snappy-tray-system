@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
 
 
 function Reports() {
+  const { t } = useTranslation();
   const [from, setFrom] = useState<string>(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
   const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
   const [orders, setOrders] = useState<any[]>([]);
