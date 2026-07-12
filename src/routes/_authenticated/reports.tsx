@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money } from "@/lib/format";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports" }] }),
   component: Reports,
 });
+
 
 function Reports() {
   const [from, setFrom] = useState<string>(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
