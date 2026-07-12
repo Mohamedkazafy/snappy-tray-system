@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
 
 
 function Page() {
+  const { t } = useTranslation();
   const [stock, setStock] = useState<any[]>([]);
   const [moves, setMoves] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -31,6 +32,42 @@ function Page() {
   const [adjust, setAdjust] = useState<{ product_id: string; warehouse_id: string; delta: string; note: string } | null>(null);
   const [transfer, setTransfer] = useState<{ product_id: string; from_wh: string; to_wh: string; qty: string; note: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function exportExcel() {
+    const stockRows = stock.map((r: any) => ({
+      Product: r.products?.name ?? "",
+      Type: r.products?.product_type ?? "",
+      Warehouse: r.warehouses?.name ?? "",
+      Quantity: Number(r.qty),
+      "Min Qty": Number(r.min_qty ?? 0),
+      "Avg Cost": Number(r.avg_cost ?? 0),
+      "Stock Value": Number(r.qty) * Number(r.avg_cost ?? 0),
+      "Low Stock": Number(r.qty) <= Number(r.min_qty ?? 0) && Number(r.min_qty ?? 0) > 0 ? "YES" : "",
+    }));
+    const totalValue = stockRows.reduce((s, r) => s + r["Stock Value"], 0);
+    stockRows.push({ Product: "TOTAL", Type: "", Warehouse: "", Quantity: 0, "Min Qty": 0, "Avg Cost": 0, "Stock Value": totalValue, "Low Stock": "" } as any);
+
+    const moveRows = moves.map((r: any) => ({
+      Date: new Date(r.created_at).toLocaleString(),
+      Product: r.products?.name ?? "",
+      Warehouse: r.warehouses?.name ?? "",
+      Reason: r.reason,
+      Qty: Number(r.qty),
+      Cost: Number(r.cost ?? 0),
+      Note: r.note ?? "",
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(stockRows);
+    ws1["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws1, "Stock");
+    const ws2 = XLSX.utils.json_to_sheet(moveRows);
+    ws2["!cols"] = [{ wch: 20 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws2, "Movements");
+    XLSX.writeFile(wb, `inventory-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(t("exportExcel") + " ✓");
+  }
+
 
   async function load() {
     const [s, m, p, w] = await Promise.all([
