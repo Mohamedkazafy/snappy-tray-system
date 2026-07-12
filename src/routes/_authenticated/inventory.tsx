@@ -12,12 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money } from "@/lib/format";
 import { toast } from "sonner";
-import { Sliders, ArrowRightLeft } from "lucide-react";
+import { Sliders, ArrowRightLeft, FileSpreadsheet } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({ meta: [{ title: "Inventory" }] }),
   component: Page,
 });
+
 
 function Page() {
   const [stock, setStock] = useState<any[]>([]);
