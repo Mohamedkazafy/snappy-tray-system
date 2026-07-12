@@ -8,13 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money } from "@/lib/format";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports" }] }),
   component: Reports,
 });
 
+
 function Reports() {
+  const { t } = useTranslation();
   const [from, setFrom] = useState<string>(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
   const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
   const [orders, setOrders] = useState<any[]>([]);
@@ -45,54 +48,56 @@ function Reports() {
 
   return (
     <PageContainer>
-      <PageHeader title="Reports" subtitle="Slice sales by any dimension" />
+      <PageHeader title={t("rep.title")} subtitle={t("rep.subtitle")} />
       <Card className="p-4 mb-4 flex gap-3 items-end flex-wrap">
-        <div><Label>From</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-        <div><Label>To</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
-        <div className="ml-auto text-right">
-          <div className="text-xs text-muted-foreground">Revenue / Cost / Profit</div>
+        <div><Label>{t("inv.from")}</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+        <div><Label>{t("inv.to")}</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+        <div className="ms-auto text-right">
+          <div className="text-xs text-muted-foreground">{t("rep.revenueCostProfit")}</div>
           <div className="text-lg font-bold">{money(revenue)} / {money(cost)} / <span className="text-success">{money(revenue - cost)}</span></div>
         </div>
       </Card>
       <Tabs defaultValue="date">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="date">By date</TabsTrigger>
-          <TabsTrigger value="product">By product</TabsTrigger>
-          <TabsTrigger value="category">By category</TabsTrigger>
-          <TabsTrigger value="employee">By employee</TabsTrigger>
-          <TabsTrigger value="method">By payment</TabsTrigger>
-          <TabsTrigger value="type">By sale type</TabsTrigger>
+          <TabsTrigger value="date">{t("rep.byDate")}</TabsTrigger>
+          <TabsTrigger value="product">{t("rep.byProduct")}</TabsTrigger>
+          <TabsTrigger value="category">{t("rep.byCategory")}</TabsTrigger>
+          <TabsTrigger value="employee">{t("rep.byEmployee")}</TabsTrigger>
+          <TabsTrigger value="method">{t("rep.byMethod")}</TabsTrigger>
+          <TabsTrigger value="type">{t("rep.bySaleType")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="date"><SimpleTable title="Date" rows={byDate} /></TabsContent>
-        <TabsContent value="product"><SimpleTable title="Product" rows={byProduct} /></TabsContent>
-        <TabsContent value="category"><SimpleTable title="Category" rows={byCategory} /></TabsContent>
-        <TabsContent value="employee"><SimpleTable title="Employee" rows={byEmployee} /></TabsContent>
-        <TabsContent value="method"><SimpleTable title="Method" rows={byMethod} /></TabsContent>
-        <TabsContent value="type"><SimpleTable title="Sale type" rows={bySaleType} /></TabsContent>
+        <TabsContent value="date"><SimpleTable title={t("date")} rows={byDate} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="product"><SimpleTable title={t("product")} rows={byProduct} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="category"><SimpleTable title={t("rep.category")} rows={byCategory} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="employee"><SimpleTable title={t("rep.employee")} rows={byEmployee} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="method"><SimpleTable title={t("rep.method")} rows={byMethod} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
+        <TabsContent value="type"><SimpleTable title={t("rep.saleType")} rows={bySaleType} emptyLabel={t("rep.noData")} totalLabel={t("total")} /></TabsContent>
       </Tabs>
     </PageContainer>
   );
 }
+
 
 function group<T>(arr: T[], keyFn: (x: T) => string, valFn: (x: T) => number) {
   const m: Record<string, number> = {};
   arr.forEach((x) => { const k = keyFn(x) ?? "—"; m[k] = (m[k] ?? 0) + valFn(x); });
   return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([label, total]) => ({ label, total }));
 }
-function SimpleTable({ title, rows }: { title: string; rows: { label: string; total: number }[] }) {
+function SimpleTable({ title, rows, emptyLabel, totalLabel }: { title: string; rows: { label: string; total: number }[]; emptyLabel: string; totalLabel: string }) {
   const sum = rows.reduce((s, r) => s + r.total, 0);
   return (
     <Card>
       <Table>
-        <TableHeader><TableRow><TableHead>{title}</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead>{title}</TableHead><TableHead className="text-right">{totalLabel}</TableHead></TableRow></TableHeader>
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.label}><TableCell className="capitalize">{r.label}</TableCell><TableCell className="text-right font-medium">{money(r.total)}</TableCell></TableRow>
           ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={2} className="text-center py-8 text-muted-foreground">No data.</TableCell></TableRow>}
-          {rows.length > 0 && <TableRow><TableCell className="font-bold">Total</TableCell><TableCell className="text-right font-bold">{money(sum)}</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={2} className="text-center py-8 text-muted-foreground">{emptyLabel}</TableCell></TableRow>}
+          {rows.length > 0 && <TableRow><TableCell className="font-bold">{totalLabel}</TableCell><TableCell className="text-right font-bold">{money(sum)}</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
   );
+
 }

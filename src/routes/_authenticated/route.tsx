@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { setLanguage } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -43,10 +45,16 @@ function Shell() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
 
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
+  }
+
+  function toggleLang() {
+    setLanguage(isAr ? "en" : "ar");
   }
 
   const visible = nav.filter((n) => {
@@ -61,22 +69,32 @@ function Shell() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "no-print fixed lg:static inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "no-print fixed lg:static inset-y-0 z-40 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0",
+          isAr ? "right-0 lg:right-auto" : "left-0",
+          open ? "translate-x-0" : (isAr ? "translate-x-full lg:translate-x-0" : "-translate-x-full lg:translate-x-0")
         )}
       >
         <div className="h-16 flex items-center gap-3 px-5 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
+          <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
             <UtensilsCrossed className="w-5 h-5" />
           </div>
-          <div className="leading-tight">
-            <div className="font-semibold">Restaurant POS</div>
-            <div className="text-xs text-sidebar-foreground/60">{user?.email}</div>
+          <div className="leading-tight flex-1 min-w-0">
+            <div className="font-semibold truncate">{t("appName")}</div>
+            <div className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleLang}
+            title={isAr ? "English" : "العربية"}
+            className="shrink-0 h-9 w-9 rounded-full border border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-bold text-base"
+          >
+            {isAr ? "E" : "ع"}
+          </Button>
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {loading ? (
-            <div className="text-sm px-3 py-2 text-sidebar-foreground/60">Loading…</div>
+            <div className="text-sm px-3 py-2 text-sidebar-foreground/60">{t("loading")}</div>
           ) : (
             visible.map((n) => {
               const active = pathname === n.to || pathname.startsWith(n.to + "/");
@@ -93,7 +111,7 @@ function Shell() {
                   )}
                 >
                   <n.icon className="w-4 h-4" />
-                  {n.label}
+                  {t(`nav${n.to.replace("/", ".")}`, n.label)}
                 </Link>
               );
             })
@@ -101,7 +119,7 @@ function Shell() {
         </nav>
         <div className="p-3 border-t border-sidebar-border">
           <Button variant="ghost" onClick={signOut} className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
-            <LogOut className="w-4 h-4 mr-2" /> Sign out
+            <LogOut className="w-4 h-4 mr-2" /> {t("signOut")}
           </Button>
         </div>
       </aside>
@@ -118,7 +136,15 @@ function Shell() {
           <Button variant="ghost" size="icon" onClick={() => setOpen(!open)}>
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </Button>
-          <div className="font-semibold">Restaurant POS</div>
+          <div className="font-semibold flex-1">{t("appName")}</div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleLang}
+            className="h-9 w-9 rounded-full border font-bold"
+          >
+            {isAr ? "E" : "ع"}
+          </Button>
         </header>
         <main className="flex-1 overflow-auto">
           <Outlet />
@@ -127,3 +153,4 @@ function Shell() {
     </div>
   );
 }
+

@@ -12,14 +12,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money } from "@/lib/format";
 import { toast } from "sonner";
-import { Sliders, ArrowRightLeft } from "lucide-react";
+import { Sliders, ArrowRightLeft, FileSpreadsheet } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import * as XLSX from "xlsx";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({ meta: [{ title: "Inventory" }] }),
   component: Page,
 });
 
+
 function Page() {
+  const { t } = useTranslation();
   const [stock, setStock] = useState<any[]>([]);
   const [moves, setMoves] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -28,6 +32,42 @@ function Page() {
   const [adjust, setAdjust] = useState<{ product_id: string; warehouse_id: string; delta: string; note: string } | null>(null);
   const [transfer, setTransfer] = useState<{ product_id: string; from_wh: string; to_wh: string; qty: string; note: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function exportExcel() {
+    const stockRows = stock.map((r: any) => ({
+      Product: r.products?.name ?? "",
+      Type: r.products?.product_type ?? "",
+      Warehouse: r.warehouses?.name ?? "",
+      Quantity: Number(r.qty),
+      "Min Qty": Number(r.min_qty ?? 0),
+      "Avg Cost": Number(r.avg_cost ?? 0),
+      "Stock Value": Number(r.qty) * Number(r.avg_cost ?? 0),
+      "Low Stock": Number(r.qty) <= Number(r.min_qty ?? 0) && Number(r.min_qty ?? 0) > 0 ? "YES" : "",
+    }));
+    const totalValue = stockRows.reduce((s, r) => s + r["Stock Value"], 0);
+    stockRows.push({ Product: "TOTAL", Type: "", Warehouse: "", Quantity: 0, "Min Qty": 0, "Avg Cost": 0, "Stock Value": totalValue, "Low Stock": "" } as any);
+
+    const moveRows = moves.map((r: any) => ({
+      Date: new Date(r.created_at).toLocaleString(),
+      Product: r.products?.name ?? "",
+      Warehouse: r.warehouses?.name ?? "",
+      Reason: r.reason,
+      Qty: Number(r.qty),
+      Cost: Number(r.cost ?? 0),
+      Note: r.note ?? "",
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(stockRows);
+    ws1["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws1, "Stock");
+    const ws2 = XLSX.utils.json_to_sheet(moveRows);
+    ws2["!cols"] = [{ wch: 20 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws2, "Movements");
+    XLSX.writeFile(wb, `inventory-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(t("exportExcel") + " ✓");
+  }
+
 
   async function load() {
     const [s, m, p, w] = await Promise.all([
@@ -79,31 +119,34 @@ function Page() {
 
   return (
     <PageContainer>
-      <PageHeader title="Inventory" subtitle="Live stock levels and movement history"
+      <PageHeader title={t("inv.title")} subtitle={t("inv.subtitle")}
         actions={
           <>
+            <Button variant="outline" onClick={exportExcel}>
+              <FileSpreadsheet className="w-4 h-4 mr-1" /> {t("exportExcel")}
+            </Button>
             <Button variant="outline" onClick={() => setAdjust({ product_id: "", warehouse_id: warehouses[0]?.id ?? "", delta: "", note: "" })}>
-              <Sliders className="w-4 h-4 mr-1" /> Adjust
+              <Sliders className="w-4 h-4 mr-1" /> {t("inv.adjust")}
             </Button>
             <Button onClick={() => setTransfer({ product_id: "", from_wh: warehouses[0]?.id ?? "", to_wh: warehouses[1]?.id ?? "", qty: "", note: "" })}>
-              <ArrowRightLeft className="w-4 h-4 mr-1" /> Transfer
+              <ArrowRightLeft className="w-4 h-4 mr-1" /> {t("inv.transfer")}
             </Button>
           </>
         }
       />
       <Tabs defaultValue="stock">
         <TabsList>
-          <TabsTrigger value="stock">Current stock</TabsTrigger>
-          <TabsTrigger value="moves">Movements</TabsTrigger>
+          <TabsTrigger value="stock">{t("inv.currentStock")}</TabsTrigger>
+          <TabsTrigger value="moves">{t("inv.movements")}</TabsTrigger>
         </TabsList>
         <TabsContent value="stock">
-          <div className="mb-3"><Input placeholder="Search product…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" /></div>
+          <div className="mb-3"><Input placeholder={t("inv.searchProduct")} value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" /></div>
           <Card>
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Product</TableHead><TableHead>Type</TableHead><TableHead>Warehouse</TableHead>
-                <TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Avg cost</TableHead><TableHead className="text-right">Value</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("product")}</TableHead><TableHead>{t("type")}</TableHead><TableHead>{t("warehouse")}</TableHead>
+                <TableHead className="text-right">{t("qty")}</TableHead><TableHead className="text-right">{t("avgCost")}</TableHead><TableHead className="text-right">{t("value")}</TableHead>
+                <TableHead className="text-right">{t("actions")}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {filtered.map((r: any, i: number) => (
@@ -115,12 +158,12 @@ function Page() {
                     <TableCell className="text-right">{money(r.avg_cost)}</TableCell>
                     <TableCell className="text-right">{money(Number(r.qty) * Number(r.avg_cost))}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setAdjust({ product_id: r.product_id, warehouse_id: r.warehouse_id, delta: "", note: "" })}>Adjust</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setTransfer({ product_id: r.product_id, from_wh: r.warehouse_id, to_wh: warehouses.find(w => w.id !== r.warehouse_id)?.id ?? "", qty: "", note: "" })}>Transfer</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setAdjust({ product_id: r.product_id, warehouse_id: r.warehouse_id, delta: "", note: "" })}>{t("inv.adjust")}</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setTransfer({ product_id: r.product_id, from_wh: r.warehouse_id, to_wh: warehouses.find(w => w.id !== r.warehouse_id)?.id ?? "", qty: "", note: "" })}>{t("inv.transfer")}</Button>
                     </TableCell>
                   </TableRow>
                 ))}
-                {filtered.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No stock yet.</TableCell></TableRow>}
+                {filtered.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{t("inv.noStock")}</TableCell></TableRow>}
               </TableBody>
             </Table>
           </Card>
@@ -129,8 +172,8 @@ function Page() {
           <Card>
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Date</TableHead><TableHead>Product</TableHead><TableHead>Warehouse</TableHead>
-                <TableHead>Reason</TableHead><TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Cost</TableHead>
+                <TableHead>{t("date")}</TableHead><TableHead>{t("product")}</TableHead><TableHead>{t("warehouse")}</TableHead>
+                <TableHead>{t("reason")}</TableHead><TableHead className="text-right">{t("qty")}</TableHead><TableHead className="text-right">{t("cost")}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {moves.map((r: any) => (
@@ -151,62 +194,63 @@ function Page() {
 
       <Dialog open={!!adjust} onOpenChange={(v) => !v && setAdjust(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Stock adjustment</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("inv.stockAdjustment")}</DialogTitle></DialogHeader>
           {adjust && (
             <div className="space-y-3">
               <div>
-                <Label>Product</Label>
+                <Label>{t("product")}</Label>
                 <Select value={adjust.product_id} onValueChange={(v) => setAdjust({ ...adjust, product_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("inv.selectProduct")} /></SelectTrigger>
                   <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Warehouse</Label>
+                <Label>{t("warehouse")}</Label>
                 <Select value={adjust.warehouse_id} onValueChange={(v) => setAdjust({ ...adjust, warehouse_id: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Delta (use negative to decrease)</Label>
+                <Label>{t("inv.delta")}</Label>
                 <Input type="number" step="any" value={adjust.delta} onChange={(e) => setAdjust({ ...adjust, delta: e.target.value })} />
               </div>
               <div>
-                <Label>Note</Label>
-                <Input value={adjust.note} onChange={(e) => setAdjust({ ...adjust, note: e.target.value })} placeholder="e.g. spoilage, count fix" />
+                <Label>{t("inv.note")}</Label>
+                <Input value={adjust.note} onChange={(e) => setAdjust({ ...adjust, note: e.target.value })} />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdjust(null)}>Cancel</Button>
-            <Button onClick={submitAdjust} disabled={busy}>Save</Button>
+            <Button variant="outline" onClick={() => setAdjust(null)}>{t("cancel")}</Button>
+            <Button onClick={submitAdjust} disabled={busy}>{t("save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+
       <Dialog open={!!transfer} onOpenChange={(v) => !v && setTransfer(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Stock transfer</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("inv.stockTransfer")}</DialogTitle></DialogHeader>
           {transfer && (
             <div className="space-y-3">
               <div>
-                <Label>Product</Label>
+                <Label>{t("product")}</Label>
                 <Select value={transfer.product_id} onValueChange={(v) => setTransfer({ ...transfer, product_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("inv.selectProduct")} /></SelectTrigger>
                   <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>From</Label>
+                  <Label>{t("inv.from")}</Label>
                   <Select value={transfer.from_wh} onValueChange={(v) => setTransfer({ ...transfer, from_wh: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>To</Label>
+                  <Label>{t("inv.to")}</Label>
                   <Select value={transfer.to_wh} onValueChange={(v) => setTransfer({ ...transfer, to_wh: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
@@ -214,21 +258,22 @@ function Page() {
                 </div>
               </div>
               <div>
-                <Label>Quantity</Label>
+                <Label>{t("inv.quantity")}</Label>
                 <Input type="number" step="any" min={0} value={transfer.qty} onChange={(e) => setTransfer({ ...transfer, qty: e.target.value })} />
               </div>
               <div>
-                <Label>Note</Label>
+                <Label>{t("inv.note")}</Label>
                 <Input value={transfer.note} onChange={(e) => setTransfer({ ...transfer, note: e.target.value })} />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTransfer(null)}>Cancel</Button>
-            <Button onClick={submitTransfer} disabled={busy}>Transfer</Button>
+            <Button variant="outline" onClick={() => setTransfer(null)}>{t("cancel")}</Button>
+            <Button onClick={submitTransfer} disabled={busy}>{t("inv.transfer")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </PageContainer>
   );
 }
