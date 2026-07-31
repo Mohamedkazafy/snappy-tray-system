@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { money } from "@/lib/format";
 import { toast } from "sonner";
-import { Sliders, ArrowRightLeft, FileSpreadsheet } from "lucide-react";
+import { Sliders, ArrowRightLeft, FileSpreadsheet, PackageMinus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
 
@@ -31,6 +31,7 @@ function Page() {
   const [q, setQ] = useState("");
   const [adjust, setAdjust] = useState<{ product_id: string; warehouse_id: string; delta: string; note: string } | null>(null);
   const [transfer, setTransfer] = useState<{ product_id: string; from_wh: string; to_wh: string; qty: string; note: string } | null>(null);
+  const [waste, setWaste] = useState<{ product_id: string; warehouse_id: string; qty: string; reason: string; note: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   function exportExcel() {
@@ -117,6 +118,25 @@ function Page() {
     setTransfer(null); load();
   }
 
+  async function submitWaste() {
+    if (!waste) return;
+    const qty = Number(waste.qty);
+    if (!waste.product_id || !waste.warehouse_id) return toast.error("Product & warehouse required");
+    if (!qty || qty <= 0) return toast.error("Qty must be positive");
+    setBusy(true);
+    const { error } = await supabase.rpc("log_inventory_waste", {
+      _product_id: waste.product_id,
+      _warehouse_id: waste.warehouse_id,
+      _qty: qty,
+      _reason: waste.reason,
+      _note: waste.note,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Waste logged");
+    setWaste(null); load();
+  }
+
   return (
     <PageContainer>
       <PageHeader title={t("inv.title")} subtitle={t("inv.subtitle")}
@@ -127,6 +147,9 @@ function Page() {
             </Button>
             <Button variant="outline" onClick={() => setAdjust({ product_id: "", warehouse_id: warehouses[0]?.id ?? "", delta: "", note: "" })}>
               <Sliders className="w-4 h-4 mr-1" /> {t("inv.adjust")}
+            </Button>
+            <Button variant="outline" onClick={() => setWaste({ product_id: "", warehouse_id: warehouses[0]?.id ?? "", qty: "", reason: "waste", note: "" })}>
+              <PackageMinus className="w-4 h-4 mr-1" /> Log waste
             </Button>
             <Button onClick={() => setTransfer({ product_id: "", from_wh: warehouses[0]?.id ?? "", to_wh: warehouses[1]?.id ?? "", qty: "", note: "" })}>
               <ArrowRightLeft className="w-4 h-4 mr-1" /> {t("inv.transfer")}
@@ -270,6 +293,55 @@ function Page() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTransfer(null)}>{t("cancel")}</Button>
             <Button onClick={submitTransfer} disabled={busy}>{t("inv.transfer")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!waste} onOpenChange={(v) => !v && setWaste(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Log waste</DialogTitle></DialogHeader>
+          {waste && (
+            <div className="space-y-3">
+              <div>
+                <Label>{t("product")}</Label>
+                <Select value={waste.product_id} onValueChange={(v) => setWaste({ ...waste, product_id: v })}>
+                  <SelectTrigger><SelectValue placeholder={t("inv.selectProduct")} /></SelectTrigger>
+                  <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Warehouse</Label>
+                <Select value={waste.warehouse_id} onValueChange={(v) => setWaste({ ...waste, warehouse_id: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{warehouses.map((w) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Reason</Label>
+                <Select value={waste.reason} onValueChange={(v) => setWaste({ ...waste, reason: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="waste">Waste</SelectItem>
+                    <SelectItem value="spoilage">Spoilage</SelectItem>
+                    <SelectItem value="dropped">Dropped</SelectItem>
+                    <SelectItem value="staff_meal">Staff Meal</SelectItem>
+                    <SelectItem value="customer_replacement">Customer Replacement</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("inv.qty")}</Label>
+                <Input type="number" step="any" min={0} value={waste.qty} onChange={(e) => setWaste({ ...waste, qty: e.target.value })} />
+              </div>
+              <div>
+                <Label>{t("inv.note")}</Label>
+                <Input value={waste.note} onChange={(e) => setWaste({ ...waste, note: e.target.value })} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWaste(null)}>Cancel</Button>
+            <Button onClick={submitWaste} disabled={busy}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -18,25 +18,29 @@ export const Route = createFileRoute("/_authenticated/products")({
   component: Page,
 });
 
-type Product = { id: string; code: string | null; name: string; category_id: string | null; product_type: "raw"|"manufactured"|"ready"; price: number; cost: number; taxable: boolean; tax_rate: number | null; active: boolean };
+type Product = { id: string; code: string | null; name: string; category_id: string | null; brand_id: string | null; product_type: "raw"|"manufactured"|"ready"; price: number; cost: number; taxable: boolean; tax_rate: number | null; unit: string | null; reorder_level: number | null; active: boolean };
 type Cat = { id: string; name: string };
+type Brand = { id: string; name: string };
 type Recipe = { id?: string; ingredient_id: string; qty: number };
 
 function Page() {
   const [rows, setRows] = useState<Product[]>([]);
   const [cats, setCats] = useState<Cat[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [recipeFor, setRecipeFor] = useState<Product | null>(null);
   const [recipe, setRecipe] = useState<Recipe[]>([]);
 
   async function load() {
-    const [p, c] = await Promise.all([
+    const [p, c, b] = await Promise.all([
       supabase.from("products").select("*").order("name"),
       supabase.from("categories").select("id,name").order("name"),
+      supabase.from("brands").select("id,name").order("name"),
     ]);
     setRows((p.data ?? []) as any);
     setCats((c.data ?? []) as any);
+    setBrands((b.data ?? []) as any);
   }
   useEffect(() => { load(); }, []);
 
@@ -46,11 +50,14 @@ function Page() {
       code: editing.code || null,
       name: editing.name,
       category_id: editing.category_id || null,
+      brand_id: editing.brand_id || null,
       product_type: editing.product_type ?? "ready",
       price: editing.price ?? 0,
       cost: editing.cost ?? 0,
       taxable: editing.taxable ?? true,
       tax_rate: editing.tax_rate ?? null,
+      unit: editing.unit || null,
+      reorder_level: editing.reorder_level ?? 0,
       active: editing.active ?? true,
     };
     const { error } = editing.id
@@ -95,7 +102,7 @@ function Page() {
         <Table>
           <TableHeader><TableRow>
             <TableHead>Name</TableHead><TableHead>Code</TableHead><TableHead>Type</TableHead>
-            <TableHead>Category</TableHead><TableHead>Price</TableHead><TableHead>Cost</TableHead>
+            <TableHead>Brand</TableHead><TableHead>Category</TableHead><TableHead>Price</TableHead><TableHead>Cost</TableHead>
             <TableHead className="w-32" />
           </TableRow></TableHeader>
           <TableBody>
@@ -104,6 +111,7 @@ function Page() {
                 <TableCell className="font-medium">{r.name}</TableCell>
                 <TableCell className="text-muted-foreground">{r.code}</TableCell>
                 <TableCell><span className="text-xs bg-secondary px-2 py-0.5 rounded">{r.product_type}</span></TableCell>
+                <TableCell>{brands.find((b) => b.id === r.brand_id)?.name ?? "—"}</TableCell>
                 <TableCell>{cats.find((c) => c.id === r.category_id)?.name ?? "—"}</TableCell>
                 <TableCell>{money(r.price)}</TableCell>
                 <TableCell>{money(r.cost)}</TableCell>
@@ -116,7 +124,7 @@ function Page() {
                 </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No products.</TableCell></TableRow>}
+            {rows.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No products.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
@@ -138,6 +146,13 @@ function Page() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Brand</Label>
+              <Select value={editing?.brand_id ?? ""} onValueChange={(v) => setEditing({ ...editing, brand_id: v || null })}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>{brands.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="col-span-2">
               <Label>Category</Label>
               <Select value={editing?.category_id ?? ""} onValueChange={(v) => setEditing({ ...editing, category_id: v || null })}>
@@ -147,6 +162,15 @@ function Page() {
             </div>
             <div><Label>Price</Label><Input type="number" step="0.01" value={editing?.price ?? 0} onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })} /></div>
             <div><Label>Cost</Label><Input type="number" step="0.01" value={editing?.cost ?? 0} onChange={(e) => setEditing({ ...editing, cost: Number(e.target.value) })} /></div>
+            <div><Label>Unit</Label><Select value={editing?.unit ?? ""} onValueChange={(v) => setEditing({ ...editing, unit: v || null })}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grams">grams</SelectItem>
+                <SelectItem value="ml">ml</SelectItem>
+                <SelectItem value="pcs">pcs</SelectItem>
+              </SelectContent>
+            </Select></div>
+            <div><Label>Reorder level</Label><Input type="number" step="0.001" value={editing?.reorder_level ?? 0} onChange={(e) => setEditing({ ...editing, reorder_level: Number(e.target.value) })} /></div>
             <div><Label>Tax rate %</Label><Input type="number" step="0.01" value={editing?.tax_rate ?? ""} onChange={(e) => setEditing({ ...editing, tax_rate: e.target.value ? Number(e.target.value) : null })} placeholder="Use default" /></div>
             <div className="flex items-end gap-4">
               <label className="flex items-center gap-2"><input type="checkbox" checked={editing?.taxable ?? true} onChange={(e) => setEditing({ ...editing, taxable: e.target.checked })} /> Taxable</label>

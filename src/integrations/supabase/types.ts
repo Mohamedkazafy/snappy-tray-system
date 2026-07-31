@@ -47,6 +47,27 @@ export type Database = {
         }
         Relationships: []
       }
+      brands: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           active: boolean
@@ -354,6 +375,7 @@ export type Database = {
       products: {
         Row: {
           active: boolean
+          brand_id: string | null
           category_id: string | null
           code: string | null
           cost: number
@@ -362,11 +384,14 @@ export type Database = {
           name: string
           price: number
           product_type: Database["public"]["Enums"]["product_type"]
+          reorder_level: number
           tax_rate: number | null
           taxable: boolean
+          unit: string | null
         }
         Insert: {
           active?: boolean
+          brand_id?: string | null
           category_id?: string | null
           code?: string | null
           cost?: number
@@ -375,11 +400,14 @@ export type Database = {
           name: string
           price?: number
           product_type?: Database["public"]["Enums"]["product_type"]
+          reorder_level?: number
           tax_rate?: number | null
           taxable?: boolean
+          unit?: string | null
         }
         Update: {
           active?: boolean
+          brand_id?: string | null
           category_id?: string | null
           code?: string | null
           cost?: number
@@ -388,8 +416,10 @@ export type Database = {
           name?: string
           price?: number
           product_type?: Database["public"]["Enums"]["product_type"]
+          reorder_level?: number
           tax_rate?: number | null
           taxable?: boolean
+          unit?: string | null
         }
         Relationships: [
           {
@@ -966,6 +996,11 @@ export const Constants = {
         "issue",
         "receive",
         "count",
+        "waste",
+        "spoilage",
+        "dropped",
+        "staff_meal",
+        "customer_replacement",
       ],
       table_status: ["available", "occupied", "reserved", "waiting_payment"],
     },
