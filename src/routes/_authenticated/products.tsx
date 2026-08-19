@@ -97,7 +97,43 @@ function Page() {
   return (
     <PageContainer>
       <PageHeader title="Products" subtitle="Raw materials, manufactured items, and items sold at the POS"
-        actions={<Button onClick={() => { setEditing({ product_type: "ready", taxable: true, active: true, price: 0, cost: 0 }); setOpen(true); }}><Plus className="w-4 h-4 mr-1" />New</Button>} />
+        actions={<div className="flex gap-2 items-center"><input id="import-menu-file" type="file" accept="text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const txt = await f.text();
+            // Very small CSV parser (comma-separated) - expects header row: Category,Item Name,Price,Cost,Modifiers/Variants
+            const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) { toast.error('Empty or invalid CSV'); return; }
+            const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
+            const rows = lines.slice(1).map(l => l.split(',').map(c => c.trim()));
+            // Build map of category name -> id
+            const catNames = Array.from(new Set(rows.map(r => r[0] || 'Uncategorized')));
+            const existingCats = await supabase.from('categories').select('id,name').in('name', catNames);
+            const catMap: Record<string,string> = {};
+            (existingCats.data ?? []).forEach((c:any) => catMap[c.name] = c.id);
+            for (const cname of catNames) {
+              if (!catMap[cname]) {
+                const { data, error } = await supabase.from('categories').insert({ name: cname }).select('id').single();
+                if (error) { toast.error('Error creating category: ' + error.message); return; }
+                catMap[cname] = data.id;
+              }
+            }
+            // Insert products
+            const toInsert: any[] = [];
+            for (const r of rows) {
+              const category = r[0] || 'Uncategorized';
+              const name = r[1] || 'Unnamed';
+              const price = Number(r[2] || 0);
+              const cost = Number(r[3] || 0);
+              toInsert.push({ name, category_id: catMap[category], price: price || 0, cost: cost || 0, product_type: 'ready', taxable: true, active: true });
+            }
+            if (toInsert.length) {
+              const { error } = await supabase.from('products').insert(toInsert);
+              if (error) { toast.error('Error inserting products: ' + error.message); return; }
+            }
+            toast.success('Import complete');
+            load();
+          }} /><label htmlFor="import-menu-file" className="cursor-pointer"><Button variant="ghost"><BookOpen className="w-4 h-4 mr-1" />Import Menu</Button></label><Button onClick={() => { setEditing({ product_type: "ready", taxable: true, active: true, price: 0, cost: 0 }); setOpen(true); }}><Plus className="w-4 h-4 mr-1" />New</Button></div>} />
       <Card>
         <Table>
           <TableHeader><TableRow>

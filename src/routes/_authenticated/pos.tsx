@@ -159,46 +159,42 @@ function POS() {
 
     setBusy(true);
     try {
-      const { data: order, error } = await supabase
-        .from("orders")
-        .insert({
-          sale_type: saleType,
-          table_id: saleType === "dinein" ? tableId : null,
-          subtotal: totals.subtotal,
-          discount: totals.discount,
-          tax: totals.tax,
-          total: totals.total,
-          customer_name: customer || null,
-          created_by: user.id,
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      // Create order via server endpoint which enforces subscription checks
+      const tokenResp = await supabase.auth.getUser();
+      const token = (await supabase.auth.getSession())?.data?.session?.access_token ?? null;
+      const payload = {
+        items: cart.map((i) => ({ product_id: i.product_id, name: i.name, qty: i.qty, price: i.price, tax_rate: i.tax_rate, notes: i.notes ?? null })),
+        sale_type: saleType,
+        table_id: saleType === "dinein" ? tableId : null,
+        customer_name: customer || null,
+        discount: totals.discount,
+      };
 
-      const items = cart.map((i) => ({
-        order_id: order.id,
-        product_id: i.product_id,
-        name: i.name,
-        qty: i.qty,
-        price: i.price,
-        tax_rate: i.tax_rate,
-        notes: i.notes ?? null,
-      }));
-      const { error: ie } = await supabase.from("order_items").insert(items);
-      if (ie) throw ie;
+      const resp = await fetch('/api/private/create-order', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
 
-      if (saleType === "dinein" && tableId) {
-        await supabase.from("dining_tables").update({ status: "occupied" }).eq("id", tableId);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error((data && (data.message || data.error)) || 'Could not create order');
+
+      // Mark table occupied if dine-in
+      if (saleType === 'dinein' && tableId) {
+        await supabase.from('dining_tables').update({ status: 'occupied' }).eq('id', tableId);
       }
 
-      setOrderId(order.id);
-      setOrderNumber(order.order_number);
-      setStage("checkout");
+      setOrderId(data.order_id);
+      setOrderNumber(data.order_number);
+      setStage('checkout');
       const first = methods[0];
       if (first) setPayments({ [first.id]: Number(totals.total.toFixed(2)) });
       setPaidSum(0);
     } catch (err: any) {
-      toast.error(err.message ?? "Could not create order");
+      toast.error(err.message ?? 'Could not create order');
     } finally {
       setBusy(false);
     }

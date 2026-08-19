@@ -6,7 +6,7 @@ import {
   Warehouse, Truck, Boxes, ClipboardList, Wallet, BarChart3, Settings, LogOut, Users, UtensilsCrossed, Menu, X, Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { setLanguage } from "@/lib/i18n";
@@ -47,6 +47,35 @@ function Shell() {
   const [open, setOpen] = useState(false);
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
+  const [billingAlert, setBillingAlert] = useState<string | null>(null);
+
+  // Show banner when the tenant trial/subscription expires in less than 3 days
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase.from('tenants').select('*').eq('owner_id', user.id).limit(1).maybeSingle();
+        const tnt: any = data ?? null;
+        if (!tnt) { setBillingAlert(null); return; }
+        const now = Date.now();
+        const endsAt = tnt.subscription_ends_at ? new Date(tnt.subscription_ends_at).getTime() : (tnt.trial_ends_at ? new Date(tnt.trial_ends_at).getTime() : null);
+        if (endsAt) {
+          const days = Math.ceil((endsAt - now) / (1000 * 60 * 60 * 24));
+          if (days <= 3 && (tnt.status === 'TRIAL' || tnt.status === 'ACTIVE')) {
+            setBillingAlert(`Your subscription expires in ${days} day(s). Please renew to avoid interruption.`);
+            return;
+          }
+        }
+        if (tnt.status === 'EXPIRED' || tnt.status === 'SUSPENDED') {
+          setBillingAlert('Your subscription is expired or suspended — write operations are blocked.');
+        } else {
+          setBillingAlert(null);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [user]);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -146,6 +175,9 @@ function Shell() {
             {isAr ? "E" : "ع"}
           </Button>
         </header>
+        {billingAlert && (
+          <div className="no-print bg-amber-500 text-amber-900 p-3 text-sm flex items-center justify-center">{billingAlert}</div>
+        )}
         <main className="flex-1 overflow-auto">
           <Outlet />
         </main>

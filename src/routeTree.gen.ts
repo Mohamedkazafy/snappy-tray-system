@@ -9,9 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Payments_checkoutRouteImport } from './routes/payments_checkout'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiWebhookPaymentRouteImport } from './routes/api/webhook-payment'
+import { Route as ApiCreatePaymentRouteImport } from './routes/api/create-payment'
+import { Route as ApiCreateOrderRouteImport } from './routes/api/create-order'
 import { Route as AuthenticatedWarehousesRouteImport } from './routes/_authenticated/warehouses'
 import { Route as AuthenticatedTablesRouteImport } from './routes/_authenticated/tables'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
@@ -28,10 +32,18 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedClosingRouteImport } from './routes/_authenticated/closing'
 import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
 import { Route as AuthenticatedTableOrderOrderIdRouteImport } from './routes/_authenticated/table-order.$orderId'
+import { Route as AuthenticatedSettingsSubscriptionRouteImport } from './routes/_authenticated/settings.subscription'
+import { Route as AuthenticatedSettingsPrintersRouteImport } from './routes/_authenticated/settings.printers'
 import { Route as AuthenticatedReceiptOrderIdRouteImport } from './routes/_authenticated/receipt.$orderId'
+import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as ApiPublicAgentOrdersRouteImport } from './routes/api/public/agent/orders'
 import { Route as ApiPublicAgentMenuRouteImport } from './routes/api/public/agent/menu'
 
+const Payments_checkoutRoute = Payments_checkoutRouteImport.update({
+  id: '/payments_checkout',
+  path: '/payments_checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -44,6 +56,21 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhookPaymentRoute = ApiWebhookPaymentRouteImport.update({
+  id: '/api/webhook-payment',
+  path: '/api/webhook-payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCreatePaymentRoute = ApiCreatePaymentRouteImport.update({
+  id: '/api/create-payment',
+  path: '/api/create-payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCreateOrderRoute = ApiCreateOrderRouteImport.update({
+  id: '/api/create-order',
+  path: '/api/create-order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedWarehousesRoute = AuthenticatedWarehousesRouteImport.update({
@@ -129,10 +156,28 @@ const AuthenticatedTableOrderOrderIdRoute =
     path: '/table-order/$orderId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsSubscriptionRoute =
+  AuthenticatedSettingsSubscriptionRouteImport.update({
+    id: '/subscription',
+    path: '/subscription',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsPrintersRoute =
+  AuthenticatedSettingsPrintersRouteImport.update({
+    id: '/printers',
+    path: '/printers',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedReceiptOrderIdRoute =
   AuthenticatedReceiptOrderIdRouteImport.update({
     id: '/receipt/$orderId',
     path: '/receipt/$orderId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminTenantsRoute =
+  AuthenticatedAdminTenantsRouteImport.update({
+    id: '/admin/tenants',
+    path: '/admin/tenants',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiPublicAgentOrdersRoute = ApiPublicAgentOrdersRouteImport.update({
@@ -149,6 +194,7 @@ const ApiPublicAgentMenuRoute = ApiPublicAgentMenuRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/payments_checkout': typeof Payments_checkoutRoute
   '/categories': typeof AuthenticatedCategoriesRoute
   '/closing': typeof AuthenticatedClosingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -159,12 +205,18 @@ export interface FileRoutesByFullPath {
   '/products': typeof AuthenticatedProductsRoute
   '/purchases': typeof AuthenticatedPurchasesRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/settings': typeof AuthenticatedSettingsRoute
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/special-orders': typeof AuthenticatedSpecialOrdersRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/tables': typeof AuthenticatedTablesRoute
   '/warehouses': typeof AuthenticatedWarehousesRoute
+  '/api/create-order': typeof ApiCreateOrderRoute
+  '/api/create-payment': typeof ApiCreatePaymentRoute
+  '/api/webhook-payment': typeof ApiWebhookPaymentRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
+  '/settings/printers': typeof AuthenticatedSettingsPrintersRoute
+  '/settings/subscription': typeof AuthenticatedSettingsSubscriptionRoute
   '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
   '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
   '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
@@ -172,6 +224,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/payments_checkout': typeof Payments_checkoutRoute
   '/categories': typeof AuthenticatedCategoriesRoute
   '/closing': typeof AuthenticatedClosingRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -182,12 +235,18 @@ export interface FileRoutesByTo {
   '/products': typeof AuthenticatedProductsRoute
   '/purchases': typeof AuthenticatedPurchasesRoute
   '/reports': typeof AuthenticatedReportsRoute
-  '/settings': typeof AuthenticatedSettingsRoute
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/special-orders': typeof AuthenticatedSpecialOrdersRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/tables': typeof AuthenticatedTablesRoute
   '/warehouses': typeof AuthenticatedWarehousesRoute
+  '/api/create-order': typeof ApiCreateOrderRoute
+  '/api/create-payment': typeof ApiCreatePaymentRoute
+  '/api/webhook-payment': typeof ApiWebhookPaymentRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
+  '/settings/printers': typeof AuthenticatedSettingsPrintersRoute
+  '/settings/subscription': typeof AuthenticatedSettingsSubscriptionRoute
   '/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
   '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
   '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
@@ -197,6 +256,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/payments_checkout': typeof Payments_checkoutRoute
   '/_authenticated/categories': typeof AuthenticatedCategoriesRoute
   '/_authenticated/closing': typeof AuthenticatedClosingRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -207,12 +267,18 @@ export interface FileRoutesById {
   '/_authenticated/products': typeof AuthenticatedProductsRoute
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/special-orders': typeof AuthenticatedSpecialOrdersRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/tables': typeof AuthenticatedTablesRoute
   '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
+  '/api/create-order': typeof ApiCreateOrderRoute
+  '/api/create-payment': typeof ApiCreatePaymentRoute
+  '/api/webhook-payment': typeof ApiWebhookPaymentRoute
+  '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/_authenticated/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
+  '/_authenticated/settings/printers': typeof AuthenticatedSettingsPrintersRoute
+  '/_authenticated/settings/subscription': typeof AuthenticatedSettingsSubscriptionRoute
   '/_authenticated/table-order/$orderId': typeof AuthenticatedTableOrderOrderIdRoute
   '/api/public/agent/menu': typeof ApiPublicAgentMenuRoute
   '/api/public/agent/orders': typeof ApiPublicAgentOrdersRoute
@@ -222,6 +288,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/payments_checkout'
     | '/categories'
     | '/closing'
     | '/dashboard'
@@ -237,7 +304,13 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/tables'
     | '/warehouses'
+    | '/api/create-order'
+    | '/api/create-payment'
+    | '/api/webhook-payment'
+    | '/admin/tenants'
     | '/receipt/$orderId'
+    | '/settings/printers'
+    | '/settings/subscription'
     | '/table-order/$orderId'
     | '/api/public/agent/menu'
     | '/api/public/agent/orders'
@@ -245,6 +318,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/payments_checkout'
     | '/categories'
     | '/closing'
     | '/dashboard'
@@ -260,7 +334,13 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/tables'
     | '/warehouses'
+    | '/api/create-order'
+    | '/api/create-payment'
+    | '/api/webhook-payment'
+    | '/admin/tenants'
     | '/receipt/$orderId'
+    | '/settings/printers'
+    | '/settings/subscription'
     | '/table-order/$orderId'
     | '/api/public/agent/menu'
     | '/api/public/agent/orders'
@@ -269,6 +349,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/payments_checkout'
     | '/_authenticated/categories'
     | '/_authenticated/closing'
     | '/_authenticated/dashboard'
@@ -284,7 +365,13 @@ export interface FileRouteTypes {
     | '/_authenticated/suppliers'
     | '/_authenticated/tables'
     | '/_authenticated/warehouses'
+    | '/api/create-order'
+    | '/api/create-payment'
+    | '/api/webhook-payment'
+    | '/_authenticated/admin/tenants'
     | '/_authenticated/receipt/$orderId'
+    | '/_authenticated/settings/printers'
+    | '/_authenticated/settings/subscription'
     | '/_authenticated/table-order/$orderId'
     | '/api/public/agent/menu'
     | '/api/public/agent/orders'
@@ -294,12 +381,23 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  Payments_checkoutRoute: typeof Payments_checkoutRoute
+  ApiCreateOrderRoute: typeof ApiCreateOrderRoute
+  ApiCreatePaymentRoute: typeof ApiCreatePaymentRoute
+  ApiWebhookPaymentRoute: typeof ApiWebhookPaymentRoute
   ApiPublicAgentMenuRoute: typeof ApiPublicAgentMenuRoute
   ApiPublicAgentOrdersRoute: typeof ApiPublicAgentOrdersRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/payments_checkout': {
+      id: '/payments_checkout'
+      path: '/payments_checkout'
+      fullPath: '/payments_checkout'
+      preLoaderRoute: typeof Payments_checkoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -319,6 +417,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhook-payment': {
+      id: '/api/webhook-payment'
+      path: '/api/webhook-payment'
+      fullPath: '/api/webhook-payment'
+      preLoaderRoute: typeof ApiWebhookPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/create-payment': {
+      id: '/api/create-payment'
+      path: '/api/create-payment'
+      fullPath: '/api/create-payment'
+      preLoaderRoute: typeof ApiCreatePaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/create-order': {
+      id: '/api/create-order'
+      path: '/api/create-order'
+      fullPath: '/api/create-order'
+      preLoaderRoute: typeof ApiCreateOrderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/warehouses': {
@@ -433,11 +552,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTableOrderOrderIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/subscription': {
+      id: '/_authenticated/settings/subscription'
+      path: '/subscription'
+      fullPath: '/settings/subscription'
+      preLoaderRoute: typeof AuthenticatedSettingsSubscriptionRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/printers': {
+      id: '/_authenticated/settings/printers'
+      path: '/printers'
+      fullPath: '/settings/printers'
+      preLoaderRoute: typeof AuthenticatedSettingsPrintersRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/receipt/$orderId': {
       id: '/_authenticated/receipt/$orderId'
       path: '/receipt/$orderId'
       fullPath: '/receipt/$orderId'
       preLoaderRoute: typeof AuthenticatedReceiptOrderIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/tenants': {
+      id: '/_authenticated/admin/tenants'
+      path: '/admin/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AuthenticatedAdminTenantsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/agent/orders': {
@@ -457,6 +597,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsPrintersRoute: typeof AuthenticatedSettingsPrintersRoute
+  AuthenticatedSettingsSubscriptionRoute: typeof AuthenticatedSettingsSubscriptionRoute
+}
+
+const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsPrintersRoute: AuthenticatedSettingsPrintersRoute,
+  AuthenticatedSettingsSubscriptionRoute:
+    AuthenticatedSettingsSubscriptionRoute,
+}
+
+const AuthenticatedSettingsRouteWithChildren =
+  AuthenticatedSettingsRoute._addFileChildren(
+    AuthenticatedSettingsRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCategoriesRoute: typeof AuthenticatedCategoriesRoute
   AuthenticatedClosingRoute: typeof AuthenticatedClosingRoute
@@ -468,11 +624,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProductsRoute: typeof AuthenticatedProductsRoute
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedSpecialOrdersRoute: typeof AuthenticatedSpecialOrdersRoute
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
   AuthenticatedTablesRoute: typeof AuthenticatedTablesRoute
   AuthenticatedWarehousesRoute: typeof AuthenticatedWarehousesRoute
+  AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
   AuthenticatedReceiptOrderIdRoute: typeof AuthenticatedReceiptOrderIdRoute
   AuthenticatedTableOrderOrderIdRoute: typeof AuthenticatedTableOrderOrderIdRoute
 }
@@ -488,11 +645,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProductsRoute: AuthenticatedProductsRoute,
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedSpecialOrdersRoute: AuthenticatedSpecialOrdersRoute,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
   AuthenticatedTablesRoute: AuthenticatedTablesRoute,
   AuthenticatedWarehousesRoute: AuthenticatedWarehousesRoute,
+  AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
   AuthenticatedReceiptOrderIdRoute: AuthenticatedReceiptOrderIdRoute,
   AuthenticatedTableOrderOrderIdRoute: AuthenticatedTableOrderOrderIdRoute,
 }
@@ -504,6 +662,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  Payments_checkoutRoute: Payments_checkoutRoute,
+  ApiCreateOrderRoute: ApiCreateOrderRoute,
+  ApiCreatePaymentRoute: ApiCreatePaymentRoute,
+  ApiWebhookPaymentRoute: ApiWebhookPaymentRoute,
   ApiPublicAgentMenuRoute: ApiPublicAgentMenuRoute,
   ApiPublicAgentOrdersRoute: ApiPublicAgentOrdersRoute,
 }
