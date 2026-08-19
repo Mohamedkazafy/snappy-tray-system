@@ -31,6 +31,7 @@ function Page() {
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [recipeFor, setRecipeFor] = useState<Product | null>(null);
   const [recipe, setRecipe] = useState<Recipe[]>([]);
+  const [recipeCounts, setRecipeCounts] = useState<Record<string, number>>({});
 
   async function load() {
     const [p, c, b] = await Promise.all([
@@ -38,9 +39,21 @@ function Page() {
       supabase.from("categories").select("id,name").order("name"),
       supabase.from("brands").select("id,name").order("name"),
     ]);
-    setRows((p.data ?? []) as any);
+    const products = (p.data ?? []) as any;
+    setRows(products);
     setCats((c.data ?? []) as any);
     setBrands((b.data ?? []) as any);
+
+    // Load recipe counts
+    const ids = products.map((x: any) => x.id).filter(Boolean);
+    if (ids.length) {
+      const { data: ri } = await supabase.from('recipe_items').select('product_id');
+      const counts: Record<string, number> = {};
+      (ri ?? []).forEach((r: any) => { counts[r.product_id] = (counts[r.product_id] || 0) + 1; });
+      setRecipeCounts(counts);
+    } else {
+      setRecipeCounts({});
+    }
   }
   useEffect(() => { load(); }, []);
 
@@ -127,29 +140,206 @@ function Page() {
       }
     }
 
-    // CSV fallback
+    // CSV fallback - robust parse (handle quoted fields, different delimiter)
     try {
       const txt = await f.text();
-      const lines = txt.split(/\r?\n/);
-      if (lines.length < 2) { toast.error('Empty or invalid CSV'); return; }
-      const hdr = lines[0].split(',').map((h) => h.trim());
-      const dataRows = lines.slice(1).map((l) => l.split(',').map((c) => c.trim()));
+      if (!txt || txt.trim().length === 0) { toast.error('Empty or invalid CSV'); return; }
+
+      function detectDelimiter(sample: string) {
+        const candidates = [',',';','\t','|'];
+        let best = ','; let bestCount = 0;
+        for (const d of candidates) {
+          const count = sample.split('\n').slice(0,5).map(l => l.split(d).length).reduce((a,b)=>a+b,0);
+          if (count > bestCount) { bestCount = count; best = d; }
+        }
+        return best;
+      }
+
+      function parseCsvText(text: string, delimiter: string) {
+        const rows: string[][] = [];
+        const re = new RegExp(`\\s*(?:\\"([^"]*(?:\\"\\"[^"]*)*)\\"|([^\\"${delimiter}]*))\\s*(?:${delimiter}|$)`, 'g');
+        // simpler parser: split lines then parse quoted cells
+        const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+        for (const line of lines) {
+          const cells: string[] = [];
+          let cur = '';
+          let inQuotes = false;
+          for (let i=0;i<line.length;i++) {
+            const ch = line[i];
+            if (ch === '"') {
+              if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+              else { inQuotes = !inQuotes; }
+            } else if (!inQuotes && ch === delimiter) {
+              cells.push(cur); cur = '';
+            } else { cur += ch; }
+          }
+          cells.push(cur);
+          rows.push(cells.map(c => c.trim()));
+        }
+        return rows;
+      }
+
+      const sample = txt.split('\n').slice(0,5).join('\n');
+      const delimiter = detectDelimiter(sample);
+      const parsed = parseCsvText(txt, delimiter);
+      if (parsed.length < 2) { toast.error('Empty or invalid CSV'); return; }
+      const hdr = parsed[0].map(h => h || '');
+      const dataRows = parsed.slice(1).filter(r => r.some(cell => cell !== ''));
+
+      // Auto-detect columns if headers are not reliable (Arabic headers etc.)
+      const lower = hdr.map(h => (h||'').toLowerCase());
+      function findHeaderIndex(keys: string[]) {
+        for (const k of keys) {
+          const i = lower.findIndex(h => h.includes(k));
+          if (i >= 0) return i;
+        }
+        return -1;
+      }
+
+      // heuristics
+      const nameHints = ['name','item','product','product name','item name','الصنف','اسم'];
+      const priceHints = ['price','sale price','price e','السعر','price (egp)','egp','cost price'];
+      const costHints = ['cost','cost price','تكلفة'];
+      const categoryHints = ['category','type','group','قسم','مجموعة'];
+      const ingredientHints = ['ingredient','ingredients','components','مكون'];
+      const measureHints = ['measure','qty','quantity','amount','كمية'];
+
+      let detectedName = findHeaderIndex(nameHints);
+      let detectedPrice = findHeaderIndex(priceHints);
+      let detectedCost = findHeaderIndex(costHints);
+      let detectedCategory = findHeaderIndex(categoryHints);
+      let detectedIngredient = findHeaderIndex(ingredientHints);
+      let detectedMeasure = findHeaderIndex(measureHints);
+
+      // fallback: if name not found, pick first non-empty column that contains non-numeric in first row
+      if (detectedName === -1) {
+        for (let ci=0; ci<hdr.length; ci++) {
+          const sampleVals = dataRows.slice(0,5).map(r => r[ci] ?? '').filter(Boolean);
+          const numericCount = sampleVals.filter(v => /^[0-9,.\s\$EGPegp\-]+$/.test(v)).length;
+          if (numericCount < sampleVals.length) { detectedName = ci; break; }
+        }
+        if (detectedName === -1) detectedName = 0;
+      }
+
+      // If price not found, find a numeric column with many numeric-like values
+      if (detectedPrice === -1) {
+        let bestIdx = -1; let bestScore = 0;
+        for (let ci=0; ci<hdr.length; ci++) {
+          const sampleVals = dataRows.slice(0,8).map(r => r[ci] ?? '').filter(Boolean);
+          if (sampleVals.length === 0) continue;
+          const score = sampleVals.reduce((s,v) => s + (/[0-9]/.test(v) ? 1 : 0), 0);
+          if (score > bestScore) { bestScore = score; bestIdx = ci; }
+        }
+        if (bestIdx >= 0) detectedPrice = bestIdx;
+      }
+
+      // cost fallback similar
+      if (detectedCost === -1) {
+        for (let ci=0; ci<hdr.length; ci++) {
+          if (ci === detectedPrice || ci === detectedName) continue;
+          const sampleVals = dataRows.slice(0,8).map(r => r[ci] ?? '').filter(Boolean);
+          const score = sampleVals.reduce((s,v) => s + (/[0-9]/.test(v) ? 1 : 0), 0);
+          if (score > 0) { detectedCost = ci; break; }
+        }
+      }
+
       setPreviewHeaders(hdr);
-      setPreviewRows(dataRows.filter((r) => r.length > 0));
+      setPreviewRows(dataRows);
+      // set default mapping
+      setColMapping({ category: detectedCategory >= 0 ? detectedCategory : 0, name: detectedName, price: detectedPrice >= 0 ? detectedPrice : 2, cost: detectedCost >=0 ? detectedCost : 3 });
       setPreviewOpen(true);
     } catch (e: any) {
       toast.error('Failed to read file: ' + (e.message ?? e));
     }
   }
 
+  function parseMoneyCell(v: any) {
+    if (v == null) return 0;
+    let s = String(v).trim();
+    if (!s) return 0;
+    // remove currency symbols and spaces, keep digits, dot, comma, minus
+    s = s.replace(/[^0-9.,\-]/g, '');
+    // If both comma and dot present, assume comma is thousands and remove commas
+    if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+      s = s.replace(/,/g, '');
+    } else {
+      // remove commas (thousands) and keep dot as decimal
+      s = s.replace(/,/g, '');
+    }
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function splitIngredientParts(cell: string) {
+    if (!cell) return [];
+    // split on ; or |, fallback to comma
+    let parts = cell.split(/;|\||\n/).map(p => p.trim()).filter(Boolean);
+    if (parts.length <= 1) {
+      parts = cell.split(',').map(p => p.trim()).filter(Boolean);
+    }
+    return parts;
+  }
+
+  function parseIngredientPart(part: string, measureCell?: string) {
+    // Try to extract name and quantity+unit
+    // Patterns: "Beef 150g", "Beef:150 g", "Beef|150g", "Beef - 150 g"
+    const res: { name: string; qty: number; unit: string | null } = { name: part, qty: 0, unit: null };
+    // If measureCell provided (separate column), try to parse numeric
+    if (measureCell) {
+      const num = parseFloat((measureCell + '').replace(/[^0-9.\-]/g, '')) || 0;
+      res.qty = num;
+      res.unit = (measureCell + '').replace(/[0-9.,\s]/g, '') || null;
+    }
+
+    // Try regex on part
+    // capture name then number and optional unit
+    const m = part.match(/^(.*?)[:\-\(\[]?\s*([0-9.,]+)\s*([a-zA-Z%µgmlkGLpcs]+)?\)?$/i);
+    if (m) {
+      res.name = (m[1] || '').trim() || res.name;
+      const numStr = (m[2] || '').replace(/,/g, '');
+      res.qty = parseFloat(numStr) || res.qty || 0;
+      res.unit = (m[3] || res.unit || null);
+      return res;
+    }
+
+    // alternate: '150g Beef' or '150 g Beef'
+    const m2 = part.match(/^\s*([0-9.,]+)\s*([a-zA-Z%µgmlkGLpcs]+)?\s+(.*)$/i);
+    if (m2) {
+      const numStr = (m2[1] || '').replace(/,/g, '');
+      res.qty = parseFloat(numStr) || res.qty || 0;
+      res.unit = m2[2] || res.unit || null;
+      res.name = (m2[3] || '').trim() || res.name;
+      return res;
+    }
+
+    // If nothing matched, return name only
+    res.name = (part || '').trim();
+    return res;
+  }
+
+  async function ensureRawProductByName(name: string, unit: string | null) {
+    const nm = (name || '').trim();
+    if (!nm) return null;
+    // Try find existing raw product (case-insensitive)
+    const { data: found } = await supabase.from('products').select('id,unit').ilike('name', nm).eq('product_type', 'raw').limit(1).maybeSingle();
+    if (found && found.id) {
+      // update unit if missing
+      if ((!found.unit || found.unit === '') && unit) {
+        await supabase.from('products').update({ unit }).eq('id', found.id);
+      }
+      return found.id;
+    }
+    const { data } = await supabase.from('products').insert({ name: nm, product_type: 'raw', price: 0, cost: 0, unit: unit || null, taxable: false, active: true }).select('id').single();
+    return data?.id ?? null;
+  }
+
   async function confirmImport() {
-    // Build categories list, using mapping
     const cIdx = colMapping.category ?? 0;
     const nIdx = colMapping.name ?? 1;
     const pIdx = colMapping.price ?? 2;
     const costIdx = colMapping.cost ?? 3;
 
-    const catNames = Array.from(new Set(previewRows.map((r) => r[cIdx] || 'Uncategorized')));
+    const catNames = Array.from(new Set(previewRows.map((r) => (r[cIdx] || 'Uncategorized'))));
     const { data: existing } = await supabase.from('categories').select('id,name').in('name', catNames);
     const catMap: Record<string, string> = {};
     (existing ?? []).forEach((c: any) => (catMap[c.name] = c.id));
@@ -162,25 +352,45 @@ function Page() {
       }
     }
 
-    const toInsert: any[] = previewRows.map((r) => ({
-      name: r[nIdx] || 'Unnamed',
-      category_id: catMap[r[cIdx] || 'Uncategorized'],
-      price: Number((r[pIdx] ?? '0') as any) || 0,
-      cost: Number((r[costIdx] ?? '0') as any) || 0,
-      product_type: 'ready',
-      taxable: true,
-      active: true,
-    }));
+    // Detect ingredient columns
+    const lowerHeaders = previewHeaders.map(h => (h||'').toLowerCase());
+    const ingredientColIdx = lowerHeaders.findIndex(h => h.includes('ingredient'));
+    const measureColIdx = lowerHeaders.findIndex(h => h.includes('measure') || h.includes('qty') || h.includes('quantity') || h.includes('amount'));
 
-    if (toInsert.length) {
-      const { error } = await supabase.from('products').insert(toInsert);
-      if (error) { toast.error('Error inserting products: ' + error.message); return; }
+    for (const r of previewRows) {
+      const name = (r[nIdx] || 'Unnamed').trim();
+      const priceRaw = r[pIdx] ?? '';
+      const costRaw = r[costIdx] ?? '';
+      const price = parseMoneyCell(priceRaw);
+      const cost = parseMoneyCell(costRaw);
+
+      const { data: newProd, error: prodErr } = await supabase.from('products').insert({ name, category_id: catMap[r[cIdx] || 'Uncategorized'], price, cost, product_type: 'ready', taxable: true, active: true }).select('id').single();
+      if (prodErr || !newProd) { toast.error('Error inserting product ' + name + ': ' + (prodErr?.message ?? 'unknown')); continue; }
+      const productId = newProd.id;
+
+      // If ingredient column exists, parse and create recipe_items
+      const ingredientCell = ingredientColIdx >= 0 ? (r[ingredientColIdx] || '') : '';
+      const measureCell = measureColIdx >= 0 ? (r[measureColIdx] || '') : '';
+      if (ingredientCell && String(ingredientCell).trim()) {
+        const parts = splitIngredientParts(String(ingredientCell));
+        for (const part of parts) {
+          const parsed = parseIngredientPart(part, measureCell);
+          const ingName = parsed.name;
+          const qty = parsed.qty || 0;
+          const unit = parsed.unit || null;
+          const rawId = await ensureRawProductByName(ingName, unit);
+          if (!rawId) continue;
+          // Insert recipe item
+          await supabase.from('recipe_items').insert({ product_id: productId, ingredient_id: rawId, qty: qty });
+        }
+      }
     }
+
     toast.success('Import complete');
     setPreviewOpen(false);
     setPreviewRows([]);
     setPreviewHeaders([]);
-    importInputRef.current && (importInputRef.current.value = '');
+    if (importInputRef.current) importInputRef.current.value = '';
     load();
   }
 
@@ -207,7 +417,10 @@ function Page() {
                 <TableCell>{money(r.cost)}</TableCell>
                 <TableCell className="text-right">
                   {(r.product_type === "manufactured" || r.product_type === "ready") && (
-                    <Button variant="ghost" size="icon" title="Recipe" onClick={() => openRecipe(r)}><BookOpen className="w-4 h-4" /></Button>
+                    <div className="inline-flex items-center">
+                      <Button variant="ghost" size="icon" title="Recipe" onClick={() => openRecipe(r)}><BookOpen className="w-4 h-4" /></Button>
+                      {recipeCounts[r.id] ? <span className="text-xs ml-1 px-2 py-0.5 rounded bg-muted text-muted-foreground">{recipeCounts[r.id]}</span> : null}
+                    </div>
                   )}
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setOpen(true); }}><Pencil className="w-4 h-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => del(r.id)}><Trash2 className="w-4 h-4" /></Button>
