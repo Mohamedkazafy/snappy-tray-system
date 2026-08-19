@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageContainer, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -93,47 +93,101 @@ function Page() {
   }
 
   const ingredients = rows.filter((p) => p.product_type === "raw" || p.product_type === "manufactured");
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFileName, setPreviewFileName] = useState<string | null>(null);
+  const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
+  const [previewRows, setPreviewRows] = useState<string[][]>([]);
+  const [colMapping, setColMapping] = useState<{ category?: number; name?: number; price?: number; cost?: number }>({ category: 0, name: 1, price: 2, cost: 3 });
+
+  async function handleFileSelect(f: File | null) {
+    if (!f) return;
+    const name = f.name.toLowerCase();
+    setPreviewFileName(f.name);
+
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      // Try to dynamically import xlsx; if not available, show instructions.
+      try {
+        const XLSX = await import('xlsx');
+        const ab = await f.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array' });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        if (!data || data.length < 2) { toast.error('Empty or invalid spreadsheet'); return; }
+        setPreviewHeaders((data[0] as string[]).map((h) => String(h ?? '')));
+        setPreviewRows(data.slice(1).map((r) => (r as any[]).map((c) => String(c ?? ''))));
+        setPreviewOpen(true);
+        return;
+      } catch (e: any) {
+        console.warn('xlsx not available', e);
+        toast.error('XLSX support requires the xlsx package. Run `npm i xlsx` and restart the dev server. Falling back to CSV parser if possible.');
+        // fallthrough to CSV
+      }
+    }
+
+    // CSV fallback
+    try {
+      const txt = await f.text();
+      const lines = txt.split(/\r?\n/);
+      if (lines.length < 2) { toast.error('Empty or invalid CSV'); return; }
+      const hdr = lines[0].split(',').map((h) => h.trim());
+      const dataRows = lines.slice(1).map((l) => l.split(',').map((c) => c.trim()));
+      setPreviewHeaders(hdr);
+      setPreviewRows(dataRows.filter((r) => r.length > 0));
+      setPreviewOpen(true);
+    } catch (e: any) {
+      toast.error('Failed to read file: ' + (e.message ?? e));
+    }
+  }
+
+  async function confirmImport() {
+    // Build categories list, using mapping
+    const cIdx = colMapping.category ?? 0;
+    const nIdx = colMapping.name ?? 1;
+    const pIdx = colMapping.price ?? 2;
+    const costIdx = colMapping.cost ?? 3;
+
+    const catNames = Array.from(new Set(previewRows.map((r) => r[cIdx] || 'Uncategorized')));
+    const { data: existing } = await supabase.from('categories').select('id,name').in('name', catNames);
+    const catMap: Record<string, string> = {};
+    (existing ?? []).forEach((c: any) => (catMap[c.name] = c.id));
+
+    for (const cname of catNames) {
+      if (!catMap[cname]) {
+        const { data, error } = await supabase.from('categories').insert({ name: cname }).select('id').single();
+        if (error) { toast.error('Error creating category: ' + error.message); return; }
+        catMap[cname] = data.id;
+      }
+    }
+
+    const toInsert: any[] = previewRows.map((r) => ({
+      name: r[nIdx] || 'Unnamed',
+      category_id: catMap[r[cIdx] || 'Uncategorized'],
+      price: Number((r[pIdx] ?? '0') as any) || 0,
+      cost: Number((r[costIdx] ?? '0') as any) || 0,
+      product_type: 'ready',
+      taxable: true,
+      active: true,
+    }));
+
+    if (toInsert.length) {
+      const { error } = await supabase.from('products').insert(toInsert);
+      if (error) { toast.error('Error inserting products: ' + error.message); return; }
+    }
+    toast.success('Import complete');
+    setPreviewOpen(false);
+    setPreviewRows([]);
+    setPreviewHeaders([]);
+    importInputRef.current && (importInputRef.current.value = '');
+    load();
+  }
 
   return (
     <PageContainer>
       <PageHeader title="Products" subtitle="Raw materials, manufactured items, and items sold at the POS"
-        actions={<div className="flex gap-2 items-center"><input id="import-menu-file" type="file" accept="text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={async (e) => {
-            const f = e.target.files?.[0];
-            if (!f) return;
-            const txt = await f.text();
-            // Very small CSV parser (comma-separated) - expects header row: Category,Item Name,Price,Cost,Modifiers/Variants
-            const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-            if (lines.length < 2) { toast.error('Empty or invalid CSV'); return; }
-            const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
-            const rows = lines.slice(1).map(l => l.split(',').map(c => c.trim()));
-            // Build map of category name -> id
-            const catNames = Array.from(new Set(rows.map(r => r[0] || 'Uncategorized')));
-            const existingCats = await supabase.from('categories').select('id,name').in('name', catNames);
-            const catMap: Record<string,string> = {};
-            (existingCats.data ?? []).forEach((c:any) => catMap[c.name] = c.id);
-            for (const cname of catNames) {
-              if (!catMap[cname]) {
-                const { data, error } = await supabase.from('categories').insert({ name: cname }).select('id').single();
-                if (error) { toast.error('Error creating category: ' + error.message); return; }
-                catMap[cname] = data.id;
-              }
-            }
-            // Insert products
-            const toInsert: any[] = [];
-            for (const r of rows) {
-              const category = r[0] || 'Uncategorized';
-              const name = r[1] || 'Unnamed';
-              const price = Number(r[2] || 0);
-              const cost = Number(r[3] || 0);
-              toInsert.push({ name, category_id: catMap[category], price: price || 0, cost: cost || 0, product_type: 'ready', taxable: true, active: true });
-            }
-            if (toInsert.length) {
-              const { error } = await supabase.from('products').insert(toInsert);
-              if (error) { toast.error('Error inserting products: ' + error.message); return; }
-            }
-            toast.success('Import complete');
-            load();
-          }} /><label htmlFor="import-menu-file" className="cursor-pointer"><Button variant="ghost"><BookOpen className="w-4 h-4 mr-1" />Import Menu</Button></label><Button onClick={() => { setEditing({ product_type: "ready", taxable: true, active: true, price: 0, cost: 0 }); setOpen(true); }}><Plus className="w-4 h-4 mr-1" />New</Button></div>} />
+        actions={<div className="flex gap-2 items-center"><input ref={importInputRef} id="import-menu-file" type="file" accept="text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; await handleFileSelect(f); }} /><Button variant="ghost" onClick={() => importInputRef.current?.click()}><BookOpen className="w-4 h-4 mr-1" />Import Menu</Button><Button onClick={() => { setEditing({ product_type: "ready", taxable: true, active: true, price: 0, cost: 0 }); setOpen(true); }}><Plus className="w-4 h-4 mr-1" />New</Button></div>} />
       <Card>
         <Table>
           <TableHeader><TableRow>
@@ -235,6 +289,62 @@ function Page() {
             <Button variant="outline" size="sm" onClick={() => setRecipe([...recipe, { ingredient_id: "", qty: 1 }])}><Plus className="w-4 h-4 mr-1" /> Add ingredient</Button>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setRecipeFor(null)}>Cancel</Button><Button onClick={saveRecipe}>Save recipe</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import preview dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>Import preview: {previewFileName}</DialogTitle></DialogHeader>
+          <div className="text-sm text-muted-foreground">Map columns and preview the first rows before confirming import.</div>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            <div>
+              <label className="text-xs">Category column</label>
+              <select value={colMapping.category ?? 0} onChange={(e) => setColMapping({ ...colMapping, category: Number(e.target.value) })} className="w-full">
+                {previewHeaders.map((h, i) => <option value={i} key={i}>{h || `Column ${i+1}`}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs">Name column</label>
+              <select value={colMapping.name ?? 1} onChange={(e) => setColMapping({ ...colMapping, name: Number(e.target.value) })} className="w-full">
+                {previewHeaders.map((h, i) => <option value={i} key={i}>{h || `Column ${i+1}`}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs">Price column</label>
+              <select value={colMapping.price ?? 2} onChange={(e) => setColMapping({ ...colMapping, price: Number(e.target.value) })} className="w-full">
+                {previewHeaders.map((h, i) => <option value={i} key={i}>{h || `Column ${i+1}`}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs">Cost column</label>
+              <select value={colMapping.cost ?? 3} onChange={(e) => setColMapping({ ...colMapping, cost: Number(e.target.value) })} className="w-full">
+                {previewHeaders.map((h, i) => <option value={i} key={i}>{h || `Column ${i+1}`}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 max-h-60 overflow-auto border rounded">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  {previewHeaders.map((h, i) => <th key={i} className="p-2 text-left">{h || `Column ${i+1}`}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {previewRows.slice(0, 10).map((r, ri) => (
+                  <tr key={ri} className={ri%2? 'bg-muted/5':''}>
+                    {previewHeaders.map((_, ci) => <td key={ci} className="p-2">{(r[ci] ?? '')}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPreviewOpen(false); setPreviewRows([]); setPreviewHeaders([]); }}>Cancel</Button>
+            <Button onClick={confirmImport}>Confirm import</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </PageContainer>
