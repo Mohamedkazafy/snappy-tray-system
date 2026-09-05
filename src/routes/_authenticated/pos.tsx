@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
@@ -14,9 +14,10 @@ import {
 import { toast } from "sonner";
 import { Search, Plus, Minus, Trash2, Printer, StickyNote, CreditCard, CheckCircle2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchTenantCombos, fetchTenantIdForCurrentUser, type ComboWithItems } from "@/lib/combos";
 
 export const Route = createFileRoute("/_authenticated/pos")({
-  head: () => ({ meta: [{ title: "POS — Restaurant POS" }] }),
+  head: () => ({ meta: [{ title: "POS â€” Restaurant POS" }] }),
   component: POS,
 });
 
@@ -27,7 +28,19 @@ type Settings = { currency: string; default_tax_rate: number };
 type Table = { id: string; name: string; status: string; area_id: string };
 type Area = { id: string; name: string };
 
-type CartItem = { product_id: string; name: string; price: number; qty: number; tax_rate: number; notes?: string };
+type ComboCartItem = {
+  combo_id: string;
+  combo_items: Array<{ product_id: string; name: string; quantity: number }>;
+};
+type CartItem = {
+  product_id: string;
+  name: string;
+  price: number;
+  qty: number;
+  tax_rate: number;
+  notes?: string;
+  combo?: ComboCartItem;
+};
 
 const saleTypes = [
   { key: "takeaway", label: "Take Away" },
@@ -35,16 +48,31 @@ const saleTypes = [
   { key: "delivery", label: "Delivery" },
 ] as const;
 
+function CatChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-3 py-1 rounded text-sm whitespace-nowrap transition-colors",
+        active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function POS() {
   const { user } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
+  const [combos, setCombos] = useState<ComboWithItems[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [settings, setSettings] = useState<Settings>({ currency: "USD", default_tax_rate: 0 });
   const [tables, setTables] = useState<Table[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
 
-  const [activeCat, setActiveCat] = useState<string | "all">("all");
+  const [activeCat, setActiveCat] = useState<string | "all" | "combos">("all");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [saleType, setSaleType] = useState<"takeaway" | "dinein" | "delivery">("takeaway");
@@ -66,7 +94,8 @@ function POS() {
   useEffect(() => {
     (async () => {
       const [p, c, m, s, t, a] = await Promise.all([
-        supabase.from("products").select("id,name,price,category_id,taxable,tax_rate,active").eq("active", true).order("name"),
+        // Only load sellable products (exclude raw ingredients)
+        supabase.from("products").select("id,name,price,category_id,taxable,tax_rate,active,product_type").in('product_type', ['ready','manufactured']).eq("active", true).order("name"),
         supabase.from("categories").select("id,name").eq("active", true).order("sort_order"),
         supabase.from("payment_methods").select("id,name,is_cash").eq("active", true).order("sort_order"),
         supabase.from("settings").select("currency,default_tax_rate").single(),
@@ -79,6 +108,12 @@ function POS() {
       if (s.data) setSettings(s.data as any);
       setTables((t.data ?? []) as any);
       setAreas((a.data ?? []) as any);
+      try {
+        const tenantId = await fetchTenantIdForCurrentUser();
+        setCombos(await fetchTenantCombos(tenantId));
+      } catch (error) {
+        console.error("Could not load POS combos", error);
+      }
     })();
 
     const chan = supabase
@@ -94,10 +129,20 @@ function POS() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) =>
+      activeCat !== "combos" &&
       (activeCat === "all" || p.category_id === activeCat) &&
       (!q || p.name.toLowerCase().includes(q))
     );
   }, [products, activeCat, search]);
+
+  const filteredCombos = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return combos.filter((combo) =>
+      combo.is_available &&
+      (activeCat === "all" || activeCat === "combos") &&
+      (!q || combo.name.toLowerCase().includes(q)),
+    );
+  }, [combos, activeCat, search]);
 
   const totals = useMemo(() => {
     const subtotal = cart.reduce((s, i) => s + i.qty * i.price, 0);
@@ -115,13 +160,48 @@ function POS() {
     if (!editable) { toast.error("Order sent to checkout. Go back to edit."); return; }
     const rate = p.taxable ? (p.tax_rate ?? settings.default_tax_rate ?? 0) : 0;
     setCart((c) => {
-      const i = c.findIndex((x) => x.product_id === p.id);
+      const i = c.findIndex((x) => !x.combo && x.product_id === p.id);
       if (i >= 0) {
         const copy = [...c];
         copy[i] = { ...copy[i], qty: copy[i].qty + 1 };
         return copy;
       }
+
       return [...c, { product_id: p.id, name: p.name, price: Number(p.price), qty: 1, tax_rate: Number(rate) }];
+    });
+  }
+
+  function addCombo(combo: ComboWithItems) {
+    if (!editable) {
+      toast.error("Order sent to checkout. Go back to edit.");
+      return;
+    }
+    const comboItems = combo.combo_items
+      .filter((item) => item.product)
+      .map((item) => ({
+        product_id: item.product_id,
+        name: item.product?.name ?? "Product",
+        quantity: item.quantity,
+      }));
+    if (comboItems.length === 0) {
+      toast.error("This combo has no products configured.");
+      return;
+    }
+    setCart((current) => {
+      const index = current.findIndex((item) => item.combo?.combo_id === combo.id);
+      if (index >= 0) {
+        const copy = [...current];
+        copy[index] = { ...copy[index], qty: copy[index].qty + 1 };
+        return copy;
+      }
+      return [...current, {
+        product_id: comboItems[0].product_id,
+        name: combo.name,
+        price: Number(combo.price),
+        qty: 1,
+        tax_rate: 0,
+        combo: { combo_id: combo.id, combo_items: comboItems },
+      }];
     });
   }
 
@@ -163,14 +243,25 @@ function POS() {
       const tokenResp = await supabase.auth.getUser();
       const token = (await supabase.auth.getSession())?.data?.session?.access_token ?? null;
       const payload = {
-        items: cart.map((i) => ({ product_id: i.product_id, name: i.name, qty: i.qty, price: i.price, tax_rate: i.tax_rate, notes: i.notes ?? null })),
+        items: cart.map((i) => ({
+          product_id: i.product_id,
+          name: i.name,
+          qty: i.qty,
+          price: i.price,
+          tax_rate: i.tax_rate,
+          combo_id: i.combo?.combo_id ?? null,
+          combo_items: i.combo?.combo_items ?? null,
+          notes: i.combo
+            ? `${i.notes ? `${i.notes} | ` : ""}Includes: ${i.combo.combo_items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}`
+            : i.notes ?? null,
+        })),
         sale_type: saleType,
         table_id: saleType === "dinein" ? tableId : null,
         customer_name: customer || null,
         discount: totals.discount,
       };
 
-      const resp = await fetch('/api/private/create-order', {
+      const resp = await fetch('/api/create-order', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -229,9 +320,40 @@ function POS() {
     } finally { setBusy(false); }
   }
 
-  function doPrint() {
-    if (!orderId) return;
-    window.open(`/receipt/${orderId}`, "_blank");
+  async function doPrint() {
+    // Prefer server-side printer dispatch: send KOT to configured printer; fall back to opening printable window
+    try {
+      const kotHtml = `<!doctype html><html><head><meta charset="utf-8"><title>KOT</title><style>body{font-family:sans-serif;padding:12px} .item{margin:6px 0} .sub{font-size:12px;margin-left:16px}</style></head><body><h3>KOT</h3>${cart.map(i=>`<div class="item"><div>${i.qty} x ${i.name}</div>${i.combo ? i.combo.combo_items.map(item => `<div class="sub">${i.qty * item.quantity} x ${item.name}</div>`).join('') : ''}</div>`).join('')}<hr><div style="text-align:right;font-weight:bold">Total: ${totals.total.toFixed(2)}</div></body></html>`;
+      const token = (await supabase.auth.getSession())?.data?.session?.access_token;
+      const resp = await fetch('/api/print/send', { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ content: kotHtml }) });
+      const data = await resp.json();
+      if (resp.ok && data?.method === 'browser' && data.html) {
+        // server asked client to open HTML (browser type)
+        const w = window.open('', '_blank');
+        if (!w) return toast.error('Could not open new window');
+        w.document.write(data.html); w.document.close();
+        setTimeout(() => w.print(), 300);
+        return;
+      }
+      if (resp.ok) {
+        toast.success('Sent to printer');
+        return;
+      }
+      // fallback: open printable window
+      const w = window.open('', '_blank');
+      if (!w) return toast.error('Printer failed and popup blocked');
+      w.document.write(kotHtml); w.document.close();
+      setTimeout(() => w.print(), 300);
+    } catch (err: any) {
+      // fallback
+      try {
+        const w = window.open('', '_blank');
+        if (!w) return toast.error('Could not print KOT');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>KOT</title><style>body{font-family:sans-serif;padding:12px} .item{margin:6px 0} .sub{font-size:12px;margin-left:16px}</style></head><body><h3>KOT</h3>${cart.map(i=>`<div class="item"><div>${i.qty} x ${i.name}</div>${i.combo ? i.combo.combo_items.map(item => `<div class="sub">${i.qty * item.quantity} x ${item.name}</div>`).join('') : ''}</div>`).join('')}<hr><div style="text-align:right;font-weight:bold">Total: ${totals.total.toFixed(2)}</div></body></html>`;
+        w.document.write(html); w.document.close();
+        setTimeout(() => w.print(), 300);
+      } catch (e: any) { toast.error('Could not print KOT: ' + (e?.message ?? e)); }
+    }
   }
 
   async function doComplete() {
@@ -258,9 +380,24 @@ function POS() {
       {/* Left: products */}
       <div className="flex-1 flex flex-col min-w-0 p-4 gap-3">
         <div className="flex flex-wrap gap-2 items-center">
+         <div className="ml-auto flex items-center gap-2">
+           <button onClick={() => {
+             // Quick open checkout page for the current cart subtotal (simulate invoice creation for payment)
+             (async () => {
+               try {
+                 const token = (await supabase.auth.getSession())?.data?.session?.access_token;
+                 const payload = { plan_type: 'BASIC', amount: Math.round(totals.total), period_months: 1 };
+                 const resp = await fetch('/api/create-payment', { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
+                 const data = await resp.json();
+                 if (!resp.ok) return alert('Could not create payment: ' + (data?.error ?? 'unknown'));
+                 window.open(data.payment_url, '_blank');
+               } catch (e: any) { alert('Error: ' + (e.message ?? e)); }
+             })();
+           }} title="Customer Checkout" className="bg-primary text-primary-foreground px-3 py-1 rounded">Pay (Customer)</button>
+         </div>
           <div className="flex-1 min-w-[200px] relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-11" />
+            <Input placeholder="Search productsâ€¦" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-11" />
           </div>
           <div className="flex gap-1 bg-muted rounded-lg p-1">
             {saleTypes.map((t) => (
@@ -285,10 +422,30 @@ function POS() {
           {categories.map((c) => (
             <CatChip key={c.id} active={activeCat === c.id} onClick={() => setActiveCat(c.id)}>{c.name}</CatChip>
           ))}
+          <CatChip active={activeCat === "combos"} onClick={() => setActiveCat("combos")}>Combos</CatChip>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {filteredCombos.map((combo) => (
+              <button
+                key={`combo-${combo.id}`}
+                onClick={() => addCombo(combo)}
+                className={cn(
+                  "group text-left bg-card border border-primary/40 rounded-xl p-4 hover:border-primary hover:shadow-md transition-all active:scale-[.98]",
+                  !editable && "opacity-50 pointer-events-none",
+                )}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Combo</span>
+                  <span className="text-primary font-semibold">{money(combo.price, settings.currency)}</span>
+                </div>
+                <div className="font-medium leading-tight line-clamp-2 min-h-[2.5em]">{combo.name}</div>
+                <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                  Includes: {combo.combo_items.map((item) => `${item.quantity}x ${item.product?.name ?? "Product"}`).join(" + ")}
+                </div>
+              </button>
+            ))}
             {filtered.map((p) => (
               <button
                 key={p.id}
@@ -302,7 +459,7 @@ function POS() {
                 <div className="mt-2 text-primary font-semibold">{money(p.price, settings.currency)}</div>
               </button>
             ))}
-            {filtered.length === 0 && (
+            {filtered.length === 0 && filteredCombos.length === 0 && (
               <div className="col-span-full text-center text-muted-foreground py-16">No products.</div>
             )}
           </div>
@@ -318,7 +475,7 @@ function POS() {
                 {stage === "building" ? "Current Order" : `Order #${orderNumber}`}
               </div>
               <div className="text-lg font-semibold capitalize">{saleTypes.find((s) => s.key === saleType)?.label}
-                {saleType === "dinein" && tableId ? ` · Table ${tables.find(t => t.id === tableId)?.name}` : ""}
+                {saleType === "dinein" && tableId ? ` Â· Table ${tables.find(t => t.id === tableId)?.name}` : ""}
               </div>
             </div>
             {stage === "checkout" && (
@@ -328,11 +485,11 @@ function POS() {
           {saleType === "dinein" && editable && (
             <div className="mt-2">
               <Select value={tableId} onValueChange={setTableId}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select table…" /></SelectTrigger>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Select tableâ€¦" /></SelectTrigger>
                 <SelectContent>
                   {openTablesForSelect.length === 0 && <div className="text-sm text-muted-foreground p-2">No available tables</div>}
                   {openTablesForSelect.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{areaMap.get(t.area_id) ?? "—"} · {t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>{areaMap.get(t.area_id) ?? "â€”"} Â· {t.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -368,6 +525,14 @@ function POS() {
                   )}
                 </div>
               </div>
+              {i.combo && (
+                <div className="mt-2 rounded bg-muted/50 p-2 text-xs text-muted-foreground">
+                  <div className="mb-1 font-medium text-foreground">Combo items</div>
+                  {i.combo.combo_items.map((item) => (
+                    <div key={item.product_id}>{i.qty * item.quantity}x {item.name}</div>
+                  ))}
+                </div>
+              )}
               {i.notes && <div className="mt-1 text-xs text-muted-foreground italic">{i.notes}</div>}
             </div>
           ))}
@@ -395,7 +560,7 @@ function POS() {
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1 h-11" onClick={resetAll} disabled={cart.length === 0}>Clear</Button>
               <Button className="flex-1 h-11" onClick={sendToCheckout} disabled={cart.length === 0 || busy}>
-                Checkout →
+                Checkout â†’
               </Button>
             </div>
           ) : (
@@ -425,7 +590,7 @@ function POS() {
               const v = e.target.value;
               setCart((c) => { const copy = [...c]; copy[noteFor] = { ...copy[noteFor], notes: v }; return copy; });
             }}
-            placeholder="No onions, extra spicy…"
+            placeholder="No onions, extra spicyâ€¦"
             rows={4}
           />
           <DialogFooter><Button onClick={() => setNoteFor(null)}>Done</Button></DialogFooter>
@@ -443,51 +608,19 @@ function POS() {
               <div className="flex justify-between text-sm mt-1"><span className="text-muted-foreground">This charge</span><span>{money(Object.values(payments).reduce((s, v) => s + Number(v || 0), 0), settings.currency)}</span></div>
             </Card>
             <Input placeholder="Customer name (optional)" value={customer} onChange={(e) => setCustomer(e.target.value)} />
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               {methods.map((m) => (
                 <div key={m.id} className="flex items-center gap-2">
-                  <div className="w-28 text-sm">{m.name}</div>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={payments[m.id] ?? ""}
-                    onChange={(e) => setPayments({ ...payments, [m.id]: Number(e.target.value || 0) })}
-                    placeholder="0.00"
-                  />
+                  <input id={`pm-${m.id}`} type="checkbox" checked={!!payments[m.id]} onChange={(e) => setPayments((p) => ({ ...p, [m.id]: e.target.checked ? (p[m.id] || totals.total) : 0 }))} />
+                  <label htmlFor={`pm-${m.id}`}>{m.name}</label>
+                  {payments[m.id] ? <Input type="number" value={payments[m.id]} onChange={(e) => setPayments((p) => ({ ...p, [m.id]: Number(e.target.value) }))} /> : null}
                 </div>
               ))}
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button size="sm" variant="outline" onClick={() => {
-                const first = methods[0]; if (first) setPayments({ [first.id]: Number(totals.total.toFixed(2)) });
-              }}>Exact total</Button>
-              <Button size="sm" variant="outline" onClick={() => {
-                const first = methods[0]; if (first) setPayments({ [first.id]: Number(remaining.toFixed(2)) });
-              }}>Remaining</Button>
-            </div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button><Button onClick={doCharge}>Record payment</Button></div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
-            <Button onClick={doCharge} disabled={busy}>
-              <CreditCard className="w-4 h-4 mr-2" /> {busy ? "Saving…" : "Save payment"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function CatChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "px-4 h-9 rounded-full text-sm font-medium whitespace-nowrap border transition-colors",
-        active ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:border-primary/50"
-      )}
-    >
-      {children}
-    </button>
   );
 }

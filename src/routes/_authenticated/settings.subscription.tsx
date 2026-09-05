@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageContainer, PageHeader } from "@/components/page";
@@ -39,7 +39,7 @@ function Page() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-muted-foreground">Current plan</div>
-            <div className="text-lg font-semibold">{tenant.plan_type} <span className="text-sm text-muted-foreground">· {tenant.status}</span></div>
+            <div className="text-lg font-semibold">{tenant.plan_type} <span className="text-sm text-muted-foreground">Â· {tenant.status}</span></div>
             {daysRemaining !== null && <div className="text-sm text-muted-foreground">{daysRemaining} days remaining</div>}
           </div>
           <div>

@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/create-payment")({
         if (error || !invoice) return json({ error: error?.message ?? 'Could not create invoice' }, 500);
 
         const token = encodeURIComponent(invoice.id + '::' + (Math.random().toString(36).slice(2)));
-        const paymentUrl = `${process.env.BILLING_BASE_URL ?? ''}/payments/checkout?invoice_id=${invoice.id}&token=${token}`;
+        const paymentUrl = `${process.env.BILLING_BASE_URL ?? ''}/checkout?invoice_id=${invoice.id}&token=${token}`;
 
         return json({ invoice_id: invoice.id, payment_url: paymentUrl }, 201);
       }

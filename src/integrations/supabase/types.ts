@@ -92,6 +92,119 @@ export type Database = {
         }
         Relationships: []
       }
+      combos: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          is_available: boolean
+          name: string
+          price: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_available?: boolean
+          name: string
+          price: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_available?: boolean
+          name?: string
+          price?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combo_items: {
+        Row: {
+          combo_id: string
+          id: string
+          product_id: string
+          quantity: number
+        }
+        Insert: {
+          combo_id: string
+          id?: string
+          product_id: string
+          quantity?: number
+        }
+        Update: {
+          combo_id?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_items_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "combos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          id: string
+          max_pos_terminals: number
+          name: string
+          owner_id: string
+          plan_type: string
+          status: string
+          subscription_ends_at: string | null
+          trial_ends_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_pos_terminals?: number
+          name: string
+          owner_id: string
+          plan_type?: string
+          status?: string
+          subscription_ends_at?: string | null
+          trial_ends_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_pos_terminals?: number
+          name?: string
+          owner_id?: string
+          plan_type?: string
+          status?: string
+          subscription_ends_at?: string | null
+          trial_ends_at?: string | null
+        }
+        Relationships: []
+      }
       day_closings: {
         Row: {
           business_day: string

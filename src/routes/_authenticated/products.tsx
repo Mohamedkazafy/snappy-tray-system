@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/format";
+import { ComboManager } from "@/components/combo-manager";
 
 export const Route = createFileRoute("/_authenticated/products")({
   head: () => ({ meta: [{ title: "Products" }] }),
@@ -32,6 +33,7 @@ function Page() {
   const [recipeFor, setRecipeFor] = useState<Product | null>(null);
   const [recipe, setRecipe] = useState<Recipe[]>([]);
   const [recipeCounts, setRecipeCounts] = useState<Record<string, number>>({});
+  const [activeTab, setActiveTab] = useState<"categories" | "products" | "combos">("products");
 
   async function load() {
     const [p, c, b] = await Promise.all([
@@ -394,10 +396,36 @@ function Page() {
     load();
   }
 
+  const tabs = (
+    <div className="mb-4 flex gap-1 border-b">
+      {(["categories", "products", "combos"] as const).map((tab) => (
+        <Button
+          key={tab}
+          variant="ghost"
+          className={activeTab === tab ? "border-b-2 border-primary rounded-none" : "rounded-none text-muted-foreground"}
+          onClick={() => setActiveTab(tab)}
+        >
+          {tab[0].toUpperCase() + tab.slice(1)}
+        </Button>
+      ))}
+    </div>
+  );
+
+  if (activeTab === "combos") {
+    return (
+      <PageContainer>
+        <PageHeader title="Products" subtitle="Raw materials, manufactured items, and items sold at the POS" />
+        {tabs}
+        <ComboManager products={rows.filter((product) => product.product_type !== "raw").map(({ id, name, price }) => ({ id, name, price }))} />
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer>
       <PageHeader title="Products" subtitle="Raw materials, manufactured items, and items sold at the POS"
-        actions={<div className="flex gap-2 items-center"><input ref={importInputRef} id="import-menu-file" type="file" accept="text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; await handleFileSelect(f); }} /><Button variant="ghost" onClick={() => importInputRef.current?.click()}><BookOpen className="w-4 h-4 mr-1" />Import Menu</Button><Button onClick={() => { setEditing({ product_type: "ready", taxable: true, active: true, price: 0, cost: 0 }); setOpen(true); }}><Plus className="w-4 h-4 mr-1" />New</Button></div>} />
+        actions={<div className="flex gap-2 items-center"><input ref={importInputRef} id="import-menu-file" type="file" accept="text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; await handleFileSelect(f ?? null); }} /><Button variant="ghost" onClick={() => importInputRef.current?.click()}><BookOpen className="w-4 h-4 mr-1" />Import Menu</Button><Button onClick={() => { setEditing({ product_type: "ready", taxable: true, active: true, price: 0, cost: 0 }); setOpen(true); }}><Plus className="w-4 h-4 mr-1" />New</Button></div>} />
+      {tabs}
       <Card>
         <Table>
           <TableHeader><TableRow>

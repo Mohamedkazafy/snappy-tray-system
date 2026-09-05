@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiWebhookPaymentRouteImport } from './routes/api/webhook-payment'
+import { Route as ApiPrintSendRouteImport } from './routes/api/print-send'
 import { Route as ApiCreatePaymentRouteImport } from './routes/api/create-payment'
 import { Route as ApiCreateOrderRouteImport } from './routes/api/create-order'
 import { Route as AuthenticatedWarehousesRouteImport } from './routes/_authenticated/warehouses'
@@ -61,6 +62,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiWebhookPaymentRoute = ApiWebhookPaymentRouteImport.update({
   id: '/api/webhook-payment',
   path: '/api/webhook-payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPrintSendRoute = ApiPrintSendRouteImport.update({
+  id: '/api/print-send',
+  path: '/api/print-send',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCreatePaymentRoute = ApiCreatePaymentRouteImport.update({
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/warehouses': typeof AuthenticatedWarehousesRoute
   '/api/create-order': typeof ApiCreateOrderRoute
   '/api/create-payment': typeof ApiCreatePaymentRoute
+  '/api/print-send': typeof ApiPrintSendRoute
   '/api/webhook-payment': typeof ApiWebhookPaymentRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/warehouses': typeof AuthenticatedWarehousesRoute
   '/api/create-order': typeof ApiCreateOrderRoute
   '/api/create-payment': typeof ApiCreatePaymentRoute
+  '/api/print-send': typeof ApiPrintSendRoute
   '/api/webhook-payment': typeof ApiWebhookPaymentRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
@@ -274,6 +282,7 @@ export interface FileRoutesById {
   '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
   '/api/create-order': typeof ApiCreateOrderRoute
   '/api/create-payment': typeof ApiCreatePaymentRoute
+  '/api/print-send': typeof ApiPrintSendRoute
   '/api/webhook-payment': typeof ApiWebhookPaymentRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/_authenticated/receipt/$orderId': typeof AuthenticatedReceiptOrderIdRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/warehouses'
     | '/api/create-order'
     | '/api/create-payment'
+    | '/api/print-send'
     | '/api/webhook-payment'
     | '/admin/tenants'
     | '/receipt/$orderId'
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/warehouses'
     | '/api/create-order'
     | '/api/create-payment'
+    | '/api/print-send'
     | '/api/webhook-payment'
     | '/admin/tenants'
     | '/receipt/$orderId'
@@ -367,6 +378,7 @@ export interface FileRouteTypes {
     | '/_authenticated/warehouses'
     | '/api/create-order'
     | '/api/create-payment'
+    | '/api/print-send'
     | '/api/webhook-payment'
     | '/_authenticated/admin/tenants'
     | '/_authenticated/receipt/$orderId'
@@ -384,6 +396,7 @@ export interface RootRouteChildren {
   Payments_checkoutRoute: typeof Payments_checkoutRoute
   ApiCreateOrderRoute: typeof ApiCreateOrderRoute
   ApiCreatePaymentRoute: typeof ApiCreatePaymentRoute
+  ApiPrintSendRoute: typeof ApiPrintSendRoute
   ApiWebhookPaymentRoute: typeof ApiWebhookPaymentRoute
   ApiPublicAgentMenuRoute: typeof ApiPublicAgentMenuRoute
   ApiPublicAgentOrdersRoute: typeof ApiPublicAgentOrdersRoute
@@ -424,6 +437,13 @@ declare module '@tanstack/react-router' {
       path: '/api/webhook-payment'
       fullPath: '/api/webhook-payment'
       preLoaderRoute: typeof ApiWebhookPaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/print-send': {
+      id: '/api/print-send'
+      path: '/api/print-send'
+      fullPath: '/api/print-send'
+      preLoaderRoute: typeof ApiPrintSendRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/create-payment': {
@@ -665,6 +685,7 @@ const rootRouteChildren: RootRouteChildren = {
   Payments_checkoutRoute: Payments_checkoutRoute,
   ApiCreateOrderRoute: ApiCreateOrderRoute,
   ApiCreatePaymentRoute: ApiCreatePaymentRoute,
+  ApiPrintSendRoute: ApiPrintSendRoute,
   ApiWebhookPaymentRoute: ApiWebhookPaymentRoute,
   ApiPublicAgentMenuRoute: ApiPublicAgentMenuRoute,
   ApiPublicAgentOrdersRoute: ApiPublicAgentOrdersRoute,
