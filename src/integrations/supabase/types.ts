@@ -169,6 +169,69 @@ export type Database = {
           },
         ]
       }
+      inventory_items: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          quantity: number
+          tenant_id: string
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          quantity?: number
+          tenant_id: string
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          quantity?: number
+          tenant_id?: string
+          unit?: string
+        }
+        Relationships: []
+      }
+      product_recipes: {
+        Row: {
+          id: string
+          inventory_item_id: string
+          product_id: string
+          quantity_required: number
+        }
+        Insert: {
+          id?: string
+          inventory_item_id: string
+          product_id: string
+          quantity_required: number
+        }
+        Update: {
+          id?: string
+          inventory_item_id?: string
+          product_id?: string
+          quantity_required?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_recipes_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_recipes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           created_at: string
@@ -305,6 +368,8 @@ export type Database = {
       }
       order_items: {
         Row: {
+          combo_id: string | null
+          combo_items: Json | null
           cost: number
           id: string
           name: string
@@ -316,6 +381,8 @@ export type Database = {
           tax_rate: number
         }
         Insert: {
+          combo_id?: string | null
+          combo_items?: Json | null
           cost?: number
           id?: string
           name: string
@@ -327,6 +394,8 @@ export type Database = {
           tax_rate?: number
         }
         Update: {
+          combo_id?: string | null
+          combo_items?: Json | null
           cost?: number
           id?: string
           name?: string

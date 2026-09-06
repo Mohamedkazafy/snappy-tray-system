@@ -4,12 +4,21 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getUserFromAuthHeader } from "@/lib/auth-utils.server";
 import { ensureTenantActiveForOwner } from "@/lib/subscription";
 
-type ItemInput = { product_id: string; name: string; qty: number; price: number; tax_rate: number; notes?: string | null };
+type ItemInput = {
+  product_id: string;
+  name: string;
+  qty: number;
+  price: number;
+  tax_rate: number;
+  notes?: string | null;
+  combo_id?: string | null;
+  combo_items?: Array<{ product_id: string; name: string; quantity: number }> | null;
+};
 
 type Body = {
   tenant_id?: string;
   items: ItemInput[];
-  sale_type?: string;
+  sale_type?: "takeaway" | "dinein" | "delivery" | "special";
   table_id?: string | null;
   customer_name?: string | null;
   discount?: number;
@@ -80,6 +89,8 @@ export const Route = createFileRoute("/api/create-order")({
           price: i.price,
           cost: 0,
           tax_rate: i.tax_rate ?? 0,
+          combo_id: i.combo_id ?? null,
+          combo_items: i.combo_items ?? null,
           notes: i.notes ?? null,
         }));
 

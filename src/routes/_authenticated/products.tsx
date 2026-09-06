@@ -22,7 +22,8 @@ export const Route = createFileRoute("/_authenticated/products")({
 type Product = { id: string; code: string | null; name: string; category_id: string | null; brand_id: string | null; product_type: "raw"|"manufactured"|"ready"; price: number; cost: number; taxable: boolean; tax_rate: number | null; unit: string | null; reorder_level: number | null; active: boolean };
 type Cat = { id: string; name: string };
 type Brand = { id: string; name: string };
-type Recipe = { id?: string; ingredient_id: string; qty: number };
+type InventoryItem = { id: string; name: string; unit: string; quantity: number; tenant_id: string };
+type Recipe = { id?: string; inventory_item_id: string; quantity_required: number };
 
 function Page() {
   const [rows, setRows] = useState<Product[]>([]);
@@ -33,23 +34,28 @@ function Page() {
   const [recipeFor, setRecipeFor] = useState<Product | null>(null);
   const [recipe, setRecipe] = useState<Recipe[]>([]);
   const [recipeCounts, setRecipeCounts] = useState<Record<string, number>>({});
-  const [activeTab, setActiveTab] = useState<"categories" | "products" | "combos">("products");
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [editingInventory, setEditingInventory] = useState<Partial<InventoryItem> | null>(null);
+  const [activeTab, setActiveTab] = useState<"categories" | "products" | "inventory" | "combos">("products");
 
   async function load() {
-    const [p, c, b] = await Promise.all([
+    const [p, c, b, i] = await Promise.all([
       supabase.from("products").select("*").order("name"),
       supabase.from("categories").select("id,name").order("name"),
       supabase.from("brands").select("id,name").order("name"),
+      supabase.from("inventory_items").select("id,name,unit,quantity,tenant_id").order("name"),
     ]);
     const products = (p.data ?? []) as any;
     setRows(products);
     setCats((c.data ?? []) as any);
     setBrands((b.data ?? []) as any);
+    setInventory((i.data ?? []) as InventoryItem[]);
 
     // Load recipe counts
     const ids = products.map((x: any) => x.id).filter(Boolean);
     if (ids.length) {
-      const { data: ri } = await supabase.from('recipe_items').select('product_id');
+      const { data: ri } = await supabase.from('product_recipes').select('product_id');
       const counts: Record<string, number> = {};
       (ri ?? []).forEach((r: any) => { counts[r.product_id] = (counts[r.product_id] || 0) + 1; });
       setRecipeCounts(counts);
@@ -91,23 +97,55 @@ function Page() {
 
   async function openRecipe(p: Product) {
     setRecipeFor(p);
-    const { data } = await supabase.from("recipe_items").select("*").eq("product_id", p.id);
+    const { data } = await supabase.from("product_recipes").select("*").eq("product_id", p.id);
     setRecipe((data ?? []) as any);
   }
 
   async function saveRecipe() {
     if (!recipeFor) return;
-    await supabase.from("recipe_items").delete().eq("product_id", recipeFor.id);
-    const items = recipe.filter((r) => r.ingredient_id && r.qty > 0).map((r) => ({ product_id: recipeFor.id, ingredient_id: r.ingredient_id, qty: r.qty }));
+    const { error: deleteError } = await supabase.from("product_recipes").delete().eq("product_id", recipeFor.id);
+    if (deleteError) return toast.error(deleteError.message);
+    const items = recipe.filter((r) => r.inventory_item_id && r.quantity_required > 0).map((r) => ({ product_id: recipeFor.id, inventory_item_id: r.inventory_item_id, quantity_required: r.quantity_required }));
     if (items.length) {
-      const { error } = await supabase.from("recipe_items").insert(items);
+      const { error } = await supabase.from("product_recipes").insert(items);
       if (error) return toast.error(error.message);
     }
     toast.success("Recipe saved");
     setRecipeFor(null);
   }
 
-  const ingredients = rows.filter((p) => p.product_type === "raw" || p.product_type === "manufactured");
+  async function saveInventory() {
+    if (!editingInventory?.name?.trim()) return toast.error("Ingredient name required");
+    if (!editingInventory.tenant_id) {
+      const { data: userData } = await supabase.auth.getUser();
+      const { data: tenant } = userData.user
+        ? await supabase.from("tenants").select("id").eq("owner_id", userData.user.id).limit(1).maybeSingle()
+        : { data: null };
+      if (!tenant) return toast.error("No tenant is associated with this account.");
+      editingInventory.tenant_id = tenant.id;
+    }
+    const payload = {
+      name: editingInventory.name.trim(),
+      unit: editingInventory.unit ?? "piece",
+      quantity: Number(editingInventory.quantity ?? 0),
+      tenant_id: editingInventory.tenant_id,
+    };
+    const result = editingInventory.id
+      ? await supabase.from("inventory_items").update(payload).eq("id", editingInventory.id)
+      : await supabase.from("inventory_items").insert(payload);
+    if (result.error) return toast.error(result.error.message);
+    toast.success("Ingredient saved");
+    setInventoryOpen(false);
+    setEditingInventory(null);
+    await load();
+  }
+
+  async function deleteInventory(id: string) {
+    if (!confirm("Delete ingredient? Recipes using it will also be removed.")) return;
+    const { error } = await supabase.from("inventory_items").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    await load();
+  }
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -319,19 +357,23 @@ function Page() {
     return res;
   }
 
-  async function ensureRawProductByName(name: string, unit: string | null) {
+  async function ensureInventoryItemByName(name: string, unit: string | null) {
     const nm = (name || '').trim();
     if (!nm) return null;
-    // Try find existing raw product (case-insensitive)
-    const { data: found } = await supabase.from('products').select('id,unit').ilike('name', nm).eq('product_type', 'raw').limit(1).maybeSingle();
+    const { data: found } = await supabase.from('inventory_items').select('id,unit').ilike('name', nm).limit(1).maybeSingle();
     if (found && found.id) {
-      // update unit if missing
       if ((!found.unit || found.unit === '') && unit) {
-        await supabase.from('products').update({ unit }).eq('id', found.id);
+        await supabase.from('inventory_items').update({ unit }).eq('id', found.id);
       }
       return found.id;
     }
-    const { data } = await supabase.from('products').insert({ name: nm, product_type: 'raw', price: 0, cost: 0, unit: unit || null, taxable: false, active: true }).select('id').single();
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: tenant } = userData.user
+      ? await supabase.from("tenants").select("id").eq("owner_id", userData.user.id).limit(1).maybeSingle()
+      : { data: null };
+    if (!tenant) return null;
+    const normalizedUnit = unit === "g" ? "gm" : unit === "pcs" ? "piece" : unit === "l" ? "liter" : unit === "kg" || unit === "ml" || unit === "gm" || unit === "piece" || unit === "liter" ? unit : "piece";
+    const { data } = await supabase.from('inventory_items').insert({ name: nm, tenant_id: tenant.id, unit: normalizedUnit, quantity: 0 }).select('id').single();
     return data?.id ?? null;
   }
 
@@ -380,10 +422,9 @@ function Page() {
           const ingName = parsed.name;
           const qty = parsed.qty || 0;
           const unit = parsed.unit || null;
-          const rawId = await ensureRawProductByName(ingName, unit);
+          const rawId = await ensureInventoryItemByName(ingName, unit);
           if (!rawId) continue;
-          // Insert recipe item
-          await supabase.from('recipe_items').insert({ product_id: productId, ingredient_id: rawId, qty: qty });
+          await supabase.from('product_recipes').insert({ product_id: productId, inventory_item_id: rawId, quantity_required: qty });
         }
       }
     }
@@ -398,7 +439,7 @@ function Page() {
 
   const tabs = (
     <div className="mb-4 flex gap-1 border-b">
-      {(["categories", "products", "combos"] as const).map((tab) => (
+      {(["categories", "products", "inventory", "combos"] as const).map((tab) => (
         <Button
           key={tab}
           variant="ghost"
@@ -410,6 +451,20 @@ function Page() {
       ))}
     </div>
   );
+
+  if (activeTab === "inventory") {
+    return (
+      <PageContainer>
+        <PageHeader title="Inventory / الخامات" subtitle="Manage raw ingredients and current stock" actions={<Button onClick={() => { setEditingInventory({ unit: "piece", quantity: 0 }); setInventoryOpen(true); }}><Plus className="mr-1 h-4 w-4" />Add ingredient</Button>} />
+        {tabs}
+        <Card><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Unit</TableHead><TableHead>Current stock</TableHead><TableHead /></TableRow></TableHeader><TableBody>
+          {inventory.map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.name}</TableCell><TableCell>{item.unit}</TableCell><TableCell>{item.quantity}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => { setEditingInventory(item); setInventoryOpen(true); }}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => void deleteInventory(item.id)}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>)}
+          {inventory.length === 0 && <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No ingredients yet.</TableCell></TableRow>}
+        </TableBody></Table></Card>
+        <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}><DialogContent><DialogHeader><DialogTitle>{editingInventory?.id ? "Edit" : "Add"} ingredient</DialogTitle></DialogHeader><div className="grid gap-3"><div><Label>Name</Label><Input value={editingInventory?.name ?? ""} onChange={(e) => setEditingInventory({ ...editingInventory, name: e.target.value })} /></div><div><Label>Unit</Label><Select value={editingInventory?.unit ?? "piece"} onValueChange={(v) => setEditingInventory({ ...editingInventory, unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="piece">piece</SelectItem><SelectItem value="kg">kg</SelectItem><SelectItem value="liter">liter</SelectItem><SelectItem value="gm">gm</SelectItem><SelectItem value="ml">ml</SelectItem></SelectContent></Select></div><div><Label>Current stock</Label><Input type="number" min="0" step="0.001" value={editingInventory?.quantity ?? 0} onChange={(e) => setEditingInventory({ ...editingInventory, quantity: Number(e.target.value) })} /></div></div><DialogFooter><Button variant="outline" onClick={() => setInventoryOpen(false)}>Cancel</Button><Button onClick={() => void saveInventory()}>Save</Button></DialogFooter></DialogContent></Dialog>
+      </PageContainer>
+    );
+  }
 
   if (activeTab === "combos") {
     return (
@@ -519,15 +574,15 @@ function Page() {
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {recipe.map((r, idx) => (
               <div key={idx} className="flex gap-2 items-center">
-                <Select value={r.ingredient_id} onValueChange={(v) => setRecipe(recipe.map((x, i) => i === idx ? { ...x, ingredient_id: v } : x))}>
+                <Select value={r.inventory_item_id} onValueChange={(v) => setRecipe(recipe.map((x, i) => i === idx ? { ...x, inventory_item_id: v } : x))}>
                   <SelectTrigger className="flex-1"><SelectValue placeholder="Ingredient" /></SelectTrigger>
-                  <SelectContent>{ingredients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{inventory.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} ({item.unit})</SelectItem>)}</SelectContent>
                 </Select>
-                <Input type="number" step="0.001" className="w-28" value={r.qty} onChange={(e) => setRecipe(recipe.map((x, i) => i === idx ? { ...x, qty: Number(e.target.value) } : x))} />
+                <Input type="number" step="0.001" className="w-28" value={r.quantity_required} onChange={(e) => setRecipe(recipe.map((x, i) => i === idx ? { ...x, quantity_required: Number(e.target.value) } : x))} />
                 <Button variant="ghost" size="icon" onClick={() => setRecipe(recipe.filter((_, i) => i !== idx))}><Trash2 className="w-4 h-4" /></Button>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setRecipe([...recipe, { ingredient_id: "", qty: 1 }])}><Plus className="w-4 h-4 mr-1" /> Add ingredient</Button>
+            <Button variant="outline" size="sm" onClick={() => setRecipe([...recipe, { inventory_item_id: "", quantity_required: 1 }])}><Plus className="w-4 h-4 mr-1" /> Add ingredient</Button>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setRecipeFor(null)}>Cancel</Button><Button onClick={saveRecipe}>Save recipe</Button></DialogFooter>
         </DialogContent>

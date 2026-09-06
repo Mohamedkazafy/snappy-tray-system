@@ -95,7 +95,7 @@ function POS() {
     (async () => {
       const [p, c, m, s, t, a] = await Promise.all([
         // Only load sellable products (exclude raw ingredients)
-        supabase.from("products").select("id,name,price,category_id,taxable,tax_rate,active,product_type").in('product_type', ['ready','manufactured']).eq("active", true).order("name"),
+        supabase.from("products").select("id,name,price,category_id,taxable,tax_rate,active,product_type").in('product_type', ['ready','manufactured']).eq("active", true).gt("price", 0).order("name"),
         supabase.from("categories").select("id,name").eq("active", true).order("sort_order"),
         supabase.from("payment_methods").select("id,name,is_cash").eq("active", true).order("sort_order"),
         supabase.from("settings").select("currency,default_tax_rate").single(),
@@ -129,6 +129,7 @@ function POS() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) =>
+      Number(p.price) > 0 &&
       activeCat !== "combos" &&
       (activeCat === "all" || p.category_id === activeCat) &&
       (!q || p.name.toLowerCase().includes(q))
