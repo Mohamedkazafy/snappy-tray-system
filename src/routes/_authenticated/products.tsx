@@ -22,7 +22,8 @@ export const Route = createFileRoute("/_authenticated/products")({
 type Product = { id: string; code: string | null; name: string; category_id: string | null; brand_id: string | null; product_type: "raw"|"manufactured"|"ready"; price: number; cost: number; taxable: boolean; tax_rate: number | null; unit: string | null; reorder_level: number | null; active: boolean };
 type Cat = { id: string; name: string };
 type Brand = { id: string; name: string };
-type InventoryItem = { id: string; name: string; unit: string; quantity: number; tenant_id: string };
+type InventoryUnit = "gm" | "kg" | "ml" | "l" | "piece";
+type InventoryItem = { id: string; name: string; unit: InventoryUnit; quantity: number; tenant_id: string };
 type Recipe = { id?: string; inventory_item_id: string; quantity_required: number };
 
 function Page() {
@@ -103,6 +104,9 @@ function Page() {
 
   async function saveRecipe() {
     if (!recipeFor) return;
+    if (recipe.some((item) => item.quantity_required <= 0 || item.quantity_required > 999999.999 || Number(item.quantity_required.toFixed(3)) !== item.quantity_required)) {
+      return toast.error("Recipe quantities must be positive numbers with at most 3 decimal places.");
+    }
     const { error: deleteError } = await supabase.from("product_recipes").delete().eq("product_id", recipeFor.id);
     if (deleteError) return toast.error(deleteError.message);
     const items = recipe.filter((r) => r.inventory_item_id && r.quantity_required > 0).map((r) => ({ product_id: recipeFor.id, inventory_item_id: r.inventory_item_id, quantity_required: r.quantity_required }));
@@ -126,7 +130,7 @@ function Page() {
     }
     const payload = {
       name: editingInventory.name.trim(),
-      unit: editingInventory.unit ?? "piece",
+      unit: (editingInventory.unit as InventoryUnit | undefined) ?? "piece",
       quantity: Number(editingInventory.quantity ?? 0),
       tenant_id: editingInventory.tenant_id,
     };
@@ -360,10 +364,11 @@ function Page() {
   async function ensureInventoryItemByName(name: string, unit: string | null) {
     const nm = (name || '').trim();
     if (!nm) return null;
+    const normalizedUnit = unit === "g" ? "gm" : unit === "pcs" ? "piece" : unit === "l" || unit === "liter" || unit === "liters" ? "l" : unit === "kg" || unit === "ml" || unit === "gm" || unit === "piece" ? unit : "piece";
     const { data: found } = await supabase.from('inventory_items').select('id,unit').ilike('name', nm).limit(1).maybeSingle();
     if (found && found.id) {
       if ((!found.unit || found.unit === '') && unit) {
-        await supabase.from('inventory_items').update({ unit }).eq('id', found.id);
+        await supabase.from('inventory_items').update({ unit: normalizedUnit }).eq('id', found.id);
       }
       return found.id;
     }
@@ -372,7 +377,6 @@ function Page() {
       ? await supabase.from("tenants").select("id").eq("owner_id", userData.user.id).limit(1).maybeSingle()
       : { data: null };
     if (!tenant) return null;
-    const normalizedUnit = unit === "g" ? "gm" : unit === "pcs" ? "piece" : unit === "l" ? "liter" : unit === "kg" || unit === "ml" || unit === "gm" || unit === "piece" || unit === "liter" ? unit : "piece";
     const { data } = await supabase.from('inventory_items').insert({ name: nm, tenant_id: tenant.id, unit: normalizedUnit, quantity: 0 }).select('id').single();
     return data?.id ?? null;
   }
@@ -461,7 +465,7 @@ function Page() {
           {inventory.map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.name}</TableCell><TableCell>{item.unit}</TableCell><TableCell>{item.quantity}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => { setEditingInventory(item); setInventoryOpen(true); }}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => void deleteInventory(item.id)}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>)}
           {inventory.length === 0 && <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No ingredients yet.</TableCell></TableRow>}
         </TableBody></Table></Card>
-        <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}><DialogContent><DialogHeader><DialogTitle>{editingInventory?.id ? "Edit" : "Add"} ingredient</DialogTitle></DialogHeader><div className="grid gap-3"><div><Label>Name</Label><Input value={editingInventory?.name ?? ""} onChange={(e) => setEditingInventory({ ...editingInventory, name: e.target.value })} /></div><div><Label>Unit</Label><Select value={editingInventory?.unit ?? "piece"} onValueChange={(v) => setEditingInventory({ ...editingInventory, unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="piece">piece</SelectItem><SelectItem value="kg">kg</SelectItem><SelectItem value="liter">liter</SelectItem><SelectItem value="gm">gm</SelectItem><SelectItem value="ml">ml</SelectItem></SelectContent></Select></div><div><Label>Current stock</Label><Input type="number" min="0" step="0.001" value={editingInventory?.quantity ?? 0} onChange={(e) => setEditingInventory({ ...editingInventory, quantity: Number(e.target.value) })} /></div></div><DialogFooter><Button variant="outline" onClick={() => setInventoryOpen(false)}>Cancel</Button><Button onClick={() => void saveInventory()}>Save</Button></DialogFooter></DialogContent></Dialog>
+        <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}><DialogContent><DialogHeader><DialogTitle>{editingInventory?.id ? "Edit" : "Add"} ingredient</DialogTitle></DialogHeader><div className="grid gap-3"><div><Label>Name</Label><Input value={editingInventory?.name ?? ""} onChange={(e) => setEditingInventory({ ...editingInventory, name: e.target.value })} /></div><div><Label>Unit</Label><Select value={editingInventory?.unit ?? "piece"} onValueChange={(v) => setEditingInventory({ ...editingInventory, unit: v as InventoryUnit })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="piece">piece / قطعة</SelectItem><SelectItem value="kg">kg / كيلوجرام</SelectItem><SelectItem value="l">l / لتر</SelectItem><SelectItem value="gm">gm / جرام</SelectItem><SelectItem value="ml">ml / مليلتر</SelectItem></SelectContent></Select></div><div><Label>Current stock</Label><Input type="number" min="0" step="0.001" value={editingInventory?.quantity ?? 0} onChange={(e) => setEditingInventory({ ...editingInventory, quantity: Number(e.target.value) })} /></div></div><DialogFooter><Button variant="outline" onClick={() => setInventoryOpen(false)}>Cancel</Button><Button onClick={() => void saveInventory()}>Save</Button></DialogFooter></DialogContent></Dialog>
       </PageContainer>
     );
   }
@@ -578,7 +582,7 @@ function Page() {
                   <SelectTrigger className="flex-1"><SelectValue placeholder="Ingredient" /></SelectTrigger>
                   <SelectContent>{inventory.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} ({item.unit})</SelectItem>)}</SelectContent>
                 </Select>
-                <Input type="number" step="0.001" className="w-28" value={r.quantity_required} onChange={(e) => setRecipe(recipe.map((x, i) => i === idx ? { ...x, quantity_required: Number(e.target.value) } : x))} />
+                <div className="flex items-center gap-1"><Input type="number" min="0.001" step="0.001" className="w-28" value={r.quantity_required} onChange={(e) => setRecipe(recipe.map((x, i) => i === idx ? { ...x, quantity_required: Number(e.target.value) } : x))} /><span className="w-12 text-xs text-muted-foreground">{inventory.find((item) => item.id === r.inventory_item_id)?.unit ?? "unit"}</span></div>
                 <Button variant="ghost" size="icon" onClick={() => setRecipe(recipe.filter((_, i) => i !== idx))}><Trash2 className="w-4 h-4" /></Button>
               </div>
             ))}

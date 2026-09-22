@@ -17,6 +17,23 @@ CREATE TABLE IF NOT EXISTS public.product_recipes (
   UNIQUE (product_id, inventory_item_id)
 );
 
+UPDATE public.inventory_items
+SET unit = 'l'
+WHERE unit = 'liter';
+
+ALTER TABLE public.inventory_items
+  DROP CONSTRAINT IF EXISTS inventory_items_unit_check;
+ALTER TABLE public.inventory_items
+  ADD CONSTRAINT inventory_items_unit_check
+  CHECK (unit IN ('gm', 'kg', 'ml', 'l', 'piece'));
+ALTER TABLE public.inventory_items
+  ALTER COLUMN quantity TYPE NUMERIC(14, 3)
+  USING round(quantity::numeric, 3);
+
+ALTER TABLE public.product_recipes
+  ALTER COLUMN quantity_required TYPE NUMERIC(14, 3)
+  USING round(quantity_required::numeric, 3);
+
 CREATE TABLE IF NOT EXISTS public.inventory_deductions (
   order_id UUID PRIMARY KEY REFERENCES public.orders(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -143,7 +160,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.status = 'paid' AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+  IF NEW.status = 'paid' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status) THEN
     PERFORM public.deduct_inventory_for_order(NEW.id);
   END IF;
   RETURN NEW;
@@ -152,7 +169,7 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_deduct_inventory_when_order_paid ON public.orders;
 CREATE TRIGGER trg_deduct_inventory_when_order_paid
-AFTER UPDATE OF status ON public.orders
+AFTER INSERT OR UPDATE OF status ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.deduct_inventory_when_order_paid();
 

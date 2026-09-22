@@ -176,7 +176,7 @@ export type Database = {
           name: string
           quantity: number
           tenant_id: string
-          unit: string
+          unit: "gm" | "kg" | "ml" | "l" | "piece"
         }
         Insert: {
           created_at?: string
@@ -184,7 +184,7 @@ export type Database = {
           name: string
           quantity?: number
           tenant_id: string
-          unit: string
+          unit: "gm" | "kg" | "ml" | "l" | "piece"
         }
         Update: {
           created_at?: string
@@ -192,7 +192,7 @@ export type Database = {
           name?: string
           quantity?: number
           tenant_id?: string
-          unit?: string
+          unit?: "gm" | "kg" | "ml" | "l" | "piece"
         }
         Relationships: []
       }
@@ -479,6 +479,7 @@ export type Database = {
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           table_id: string | null
+          tenant_id: string | null
           tax: number
           total: number
         }
@@ -498,6 +499,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           table_id?: string | null
+          tenant_id?: string | null
           tax?: number
           total?: number
         }
@@ -517,6 +519,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           table_id?: string | null
+          tenant_id?: string | null
           tax?: number
           total?: number
         }
