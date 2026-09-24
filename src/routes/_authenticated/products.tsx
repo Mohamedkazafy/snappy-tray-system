@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/products")({
   component: Page,
 });
 
-type Product = { id: string; code: string | null; name: string; category_id: string | null; brand_id: string | null; product_type: "raw"|"manufactured"|"ready"; price: number; cost: number; taxable: boolean; tax_rate: number | null; unit: string | null; reorder_level: number | null; active: boolean };
+type Product = { id: string; code: string | null; name: string; category_id: string | null; brand_id: string | null; product_type: "raw"|"manufactured"|"ready"; direct_inventory_item_id: string | null; price: number; cost: number; taxable: boolean; tax_rate: number | null; unit: string | null; reorder_level: number | null; active: boolean };
 type Cat = { id: string; name: string };
 type Brand = { id: string; name: string };
 type InventoryUnit = "gm" | "kg" | "ml" | "l" | "piece";
@@ -68,12 +68,16 @@ function Page() {
 
   async function save() {
     if (!editing?.name) return toast.error("Name required");
+    if (editing.product_type === "ready" && !editing.direct_inventory_item_id) {
+      return toast.error("Select the inventory item deducted when this direct product is sold.");
+    }
     const payload: any = {
       code: editing.code || null,
       name: editing.name,
       category_id: editing.category_id || null,
       brand_id: editing.brand_id || null,
       product_type: editing.product_type ?? "ready",
+      direct_inventory_item_id: editing.direct_inventory_item_id || null,
       price: editing.price ?? 0,
       cost: editing.cost ?? 0,
       taxable: editing.taxable ?? true,
@@ -503,7 +507,7 @@ function Page() {
                 <TableCell>{money(r.price)}</TableCell>
                 <TableCell>{money(r.cost)}</TableCell>
                 <TableCell className="text-right">
-                  {(r.product_type === "manufactured" || r.product_type === "ready") && (
+                  {r.product_type === "manufactured" && (
                     <div className="inline-flex items-center">
                       <Button variant="ghost" size="icon" title="Recipe" onClick={() => openRecipe(r)}><BookOpen className="w-4 h-4" /></Button>
                       {recipeCounts[r.id] ? <span className="text-xs ml-1 px-2 py-0.5 rounded bg-muted text-muted-foreground">{recipeCounts[r.id]}</span> : null}
@@ -527,15 +531,28 @@ function Page() {
             <div><Label>Code</Label><Input value={editing?.code ?? ""} onChange={(e) => setEditing({ ...editing, code: e.target.value })} /></div>
             <div>
               <Label>Type</Label>
-              <Select value={editing?.product_type ?? "ready"} onValueChange={(v) => setEditing({ ...editing, product_type: v as any })}>
+              <Select value={editing?.product_type ?? "ready"} onValueChange={(v) => setEditing({ ...editing, product_type: v as any, direct_inventory_item_id: v === "ready" ? editing?.direct_inventory_item_id ?? null : null })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ready">Ready for sale</SelectItem>
-                  <SelectItem value="manufactured">Manufactured</SelectItem>
+                  <SelectItem value="ready">Direct / Ready Product (منتج مباشر)</SelectItem>
+                  <SelectItem value="manufactured">Manufactured / Recipe Product (منتج بتصنيع)</SelectItem>
                   <SelectItem value="raw">Raw material</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {editing?.product_type === "ready" && (
+              <div className="col-span-2">
+                <Label>Direct inventory item</Label>
+                <Select value={editing.direct_inventory_item_id ?? "__none"} onValueChange={(v) => setEditing({ ...editing, direct_inventory_item_id: v === "__none" ? null : v })}>
+                  <SelectTrigger><SelectValue placeholder="Select stock item (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">No direct link</SelectItem>
+                    {inventory.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} ({item.unit})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">Each sold unit deducts one unit from this inventory item.</p>
+              </div>
+            )}
             <div>
               <Label>Brand</Label>
               <Select value={editing?.brand_id ?? ""} onValueChange={(v) => setEditing({ ...editing, brand_id: v || null })}>

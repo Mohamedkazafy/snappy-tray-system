@@ -565,6 +565,7 @@ export type Database = {
           code: string | null
           cost: number
           created_at: string
+          direct_inventory_item_id: string | null
           id: string
           name: string
           price: number
@@ -581,6 +582,7 @@ export type Database = {
           code?: string | null
           cost?: number
           created_at?: string
+          direct_inventory_item_id?: string | null
           id?: string
           name: string
           price?: number
@@ -597,6 +599,7 @@ export type Database = {
           code?: string | null
           cost?: number
           created_at?: string
+          direct_inventory_item_id?: string | null
           id?: string
           name?: string
           price?: number

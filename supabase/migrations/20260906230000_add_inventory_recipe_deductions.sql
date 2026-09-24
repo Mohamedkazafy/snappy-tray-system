@@ -17,12 +17,11 @@ CREATE TABLE IF NOT EXISTS public.product_recipes (
   UNIQUE (product_id, inventory_item_id)
 );
 
+ALTER TABLE public.inventory_items
+  DROP CONSTRAINT IF EXISTS inventory_items_unit_check;
 UPDATE public.inventory_items
 SET unit = 'l'
 WHERE unit = 'liter';
-
-ALTER TABLE public.inventory_items
-  DROP CONSTRAINT IF EXISTS inventory_items_unit_check;
 ALTER TABLE public.inventory_items
   ADD CONSTRAINT inventory_items_unit_check
   CHECK (unit IN ('gm', 'kg', 'ml', 'l', 'piece'));
@@ -42,6 +41,9 @@ CREATE TABLE IF NOT EXISTS public.inventory_deductions (
 ALTER TABLE public.order_items
   ADD COLUMN IF NOT EXISTS combo_id UUID REFERENCES public.combos(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS combo_items JSONB;
+
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS direct_inventory_item_id UUID REFERENCES public.inventory_items(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS inventory_items_tenant_id_idx ON public.inventory_items(tenant_id);
 CREATE INDEX IF NOT EXISTS product_recipes_product_id_idx ON public.product_recipes(product_id);
@@ -89,11 +91,6 @@ AS $$
 DECLARE
   order_tenant UUID;
   line RECORD;
-  recipe RECORD;
-  combo_line JSONB;
-  combo_product_id UUID;
-  combo_quantity NUMERIC;
-  deduction NUMERIC;
 BEGIN
   SELECT tenant_id INTO order_tenant FROM public.orders WHERE id = _order_id FOR UPDATE;
 
@@ -109,47 +106,89 @@ BEGIN
     FROM public.order_items
     WHERE order_id = _order_id
   LOOP
+    PERFORM public.deduct_inventory_for_product(line.product_id, line.qty, order_tenant);
     IF line.combo_items IS NOT NULL AND jsonb_typeof(line.combo_items) = 'array' THEN
-      FOR combo_line IN SELECT value FROM jsonb_array_elements(line.combo_items)
-      LOOP
-        combo_product_id := NULLIF(combo_line->>'product_id', '')::UUID;
-        combo_quantity := COALESCE((combo_line->>'quantity')::NUMERIC, 1) * line.qty;
-        FOR recipe IN
-          SELECT inventory_item_id, quantity_required
-          FROM public.product_recipes
-          WHERE product_id = combo_product_id
-        LOOP
-          deduction := recipe.quantity_required * combo_quantity;
-          UPDATE public.inventory_items
-          SET quantity = quantity - deduction
-          WHERE id = recipe.inventory_item_id
-            AND tenant_id = order_tenant
-            AND quantity >= deduction;
-          IF NOT FOUND THEN
-            RAISE EXCEPTION 'Insufficient inventory for item %', recipe.inventory_item_id;
-          END IF;
-        END LOOP;
-      END LOOP;
-    ELSE
-      FOR recipe IN
-        SELECT inventory_item_id, quantity_required
-        FROM public.product_recipes
-        WHERE product_id = line.product_id
-      LOOP
-        deduction := recipe.quantity_required * line.qty;
-        UPDATE public.inventory_items
-        SET quantity = quantity - deduction
-        WHERE id = recipe.inventory_item_id
-          AND tenant_id = order_tenant
-          AND quantity >= deduction;
-        IF NOT FOUND THEN
-          RAISE EXCEPTION 'Insufficient inventory for item %', recipe.inventory_item_id;
-        END IF;
-      END LOOP;
+      PERFORM public.deduct_inventory_for_combo_items(line.combo_items, line.qty, order_tenant);
     END IF;
   END LOOP;
 
   INSERT INTO public.inventory_deductions(order_id) VALUES (_order_id);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.deduct_inventory_for_product(
+  _product_id UUID,
+  _quantity NUMERIC,
+  _tenant_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  product_record RECORD;
+  recipe RECORD;
+  deduction NUMERIC;
+BEGIN
+  SELECT product_type, direct_inventory_item_id
+  INTO product_record
+  FROM public.products
+  WHERE id = _product_id;
+
+  IF product_record.direct_inventory_item_id IS NOT NULL THEN
+    UPDATE public.inventory_items
+    SET quantity = quantity - _quantity
+    WHERE id = product_record.direct_inventory_item_id
+      AND tenant_id = _tenant_id
+      AND quantity >= _quantity;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Insufficient inventory for product %', _product_id;
+    END IF;
+    RETURN;
+  END IF;
+
+  FOR recipe IN
+    SELECT inventory_item_id, quantity_required
+    FROM public.product_recipes
+    WHERE product_id = _product_id
+  LOOP
+    deduction := recipe.quantity_required * _quantity;
+    UPDATE public.inventory_items
+    SET quantity = quantity - deduction
+    WHERE id = recipe.inventory_item_id
+      AND tenant_id = _tenant_id
+      AND quantity >= deduction;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Insufficient inventory for item %', recipe.inventory_item_id;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.deduct_inventory_for_combo_items(
+  _items JSONB,
+  _parent_quantity NUMERIC,
+  _tenant_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  combo_line JSONB;
+  combo_product_id UUID;
+BEGIN
+  FOR combo_line IN SELECT value FROM jsonb_array_elements(_items)
+  LOOP
+    combo_product_id := NULLIF(combo_line->>'product_id', '')::UUID;
+    PERFORM public.deduct_inventory_for_product(
+      combo_product_id,
+      COALESCE((combo_line->>'quantity')::NUMERIC, 1) * _parent_quantity,
+      _tenant_id
+    );
+  END LOOP;
 END;
 $$;
 
@@ -160,8 +199,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.status = 'paid' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status) THEN
-    PERFORM public.deduct_inventory_for_order(NEW.id);
+  IF NEW.status = 'paid' THEN
+    IF TG_OP = 'INSERT' THEN
+      PERFORM public.deduct_inventory_for_order(NEW.id);
+    ELSIF OLD.status IS DISTINCT FROM NEW.status THEN
+      PERFORM public.deduct_inventory_for_order(NEW.id);
+    END IF;
   END IF;
   RETURN NEW;
 END;
